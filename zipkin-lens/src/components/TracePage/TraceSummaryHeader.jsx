@@ -16,7 +16,7 @@ import { useLingui } from '@lingui/react';
 import PropTypes from 'prop-types';
 import React, { useCallback } from 'react';
 import { useDispatch } from 'react-redux';
-import { faDownload, faFileAlt } from '@fortawesome/free-solid-svg-icons';
+import { faDownload, faFileAlt, faAngellist } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { makeStyles } from '@material-ui/styles';
 import Box from '@material-ui/core/Box';
@@ -103,6 +103,11 @@ const TraceSummaryHeader = React.memo(({ traceSummary, rootSpanIndex }) => {
   const classes = useStyles();
   const { i18n } = useLingui();
   const config = useUiConfig();
+
+  const prettifyUrl =
+    traceSummary
+      ? ` http://santa-fe.cc.cec.eu.int:8411/prettify/${traceSummary.traceId}`
+      : undefined;
 
   const logsUrl =
     config.logsUrl && traceSummary
@@ -252,6 +257,21 @@ const TraceSummaryHeader = React.memo(({ traceSummary, rootSpanIndex }) => {
                 className={classes.actionButtonIcon}
               />
               <Trans>Download JSON</Trans>
+            </Button>
+          </Grid>
+          <Grid item>
+            <Button
+              variant="outlined"
+              className={classes.actionButton}
+              href={prettifyUrl}
+              target="_blank"
+              rel="noopener"
+            >
+              <FontAwesomeIcon
+                icon={faAngellist}
+                className={classes.actionButtonIcon}
+              />
+              <Trans>Prettify</Trans>
             </Button>
           </Grid>
           {logsUrl && (
