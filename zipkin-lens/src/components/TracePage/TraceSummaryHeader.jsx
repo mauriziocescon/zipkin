@@ -104,12 +104,12 @@ const TraceSummaryHeader = React.memo(({ traceSummary, rootSpanIndex }) => {
   const { i18n } = useLingui();
   const config = useUiConfig();
 
-  // eslint-disable
+  /*eslint-disable */
   const prettifyUrl =
     traceSummary
       ? ` http://santa-fe.cc.cec.eu.int:8411/prettify/${traceSummary.traceId}`
       : undefined;
-  // eslint-enabled
+  /*eslint-enable */
 
   const logsUrl =
     config.logsUrl && traceSummary
