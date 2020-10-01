@@ -16,7 +16,7 @@ import { useLingui } from '@lingui/react';
 import PropTypes from 'prop-types';
 import React, { useCallback } from 'react';
 import { useDispatch } from 'react-redux';
-import { faDownload, faFileAlt, faAngellist } from '@fortawesome/free-solid-svg-icons';
+import { faDownload, faFileAlt } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { makeStyles } from '@material-ui/styles';
 import Box from '@material-ui/core/Box';
@@ -268,7 +268,7 @@ const TraceSummaryHeader = React.memo(({ traceSummary, rootSpanIndex }) => {
               rel="noopener"
             >
               <FontAwesomeIcon
-                icon={faAngellist}
+                icon={faFileAlt}
                 className={classes.actionButtonIcon}
               />
               <Trans>Prettify</Trans>
