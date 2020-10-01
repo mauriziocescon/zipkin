@@ -98,16 +98,18 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const TraceSummaryHeader = React.memo(({traceSummary, rootSpanIndex}) => {
+const TraceSummaryHeader = React.memo(({ traceSummary, rootSpanIndex }) => {
   const dispatch = useDispatch();
   const classes = useStyles();
-  const {i18n} = useLingui();
+  const { i18n } = useLingui();
   const config = useUiConfig();
 
+  // eslint-disable
   const prettifyUrl =
     traceSummary
-      ? `http://santa-fe.cc.cec.eu.int:8411/prettify/${traceSummary.traceId}`
+      ? ` http://santa-fe.cc.cec.eu.int:8411/prettify/${traceSummary.traceId}`
       : undefined;
+  // eslint-enabled
 
   const logsUrl =
     config.logsUrl && traceSummary
@@ -194,13 +196,13 @@ const TraceSummaryHeader = React.memo(({traceSummary, rootSpanIndex}) => {
   const traceInfo = traceSummary ? (
     <Box className={classes.traceInfo}>
       {[
-        {label: i18n._(t`Duration`), value: traceSummary.durationStr},
+        { label: i18n._(t`Duration`), value: traceSummary.durationStr },
         {
           label: i18n._(t`Services`),
           value: traceSummary.serviceNameAndSpanCounts.length,
         },
-        {label: i18n._(t`Depth`), value: traceSummary.depth},
-        {label: i18n._(t`Total Spans`), value: traceSummary.spans.length},
+        { label: i18n._(t`Depth`), value: traceSummary.depth },
+        { label: i18n._(t`Total Spans`), value: traceSummary.spans.length },
         {
           label: i18n._(t`Trace ID`),
           value:
@@ -216,7 +218,7 @@ const TraceSummaryHeader = React.memo(({traceSummary, rootSpanIndex}) => {
       ))}
     </Box>
   ) : (
-    <div/>
+    <div />
   );
 
   return (
@@ -235,8 +237,8 @@ const TraceSummaryHeader = React.memo(({traceSummary, rootSpanIndex}) => {
           ) : null}
         </Box>
         <Box className={classes.jsonUploaderAndSearchInput}>
-          <TraceJsonUploader/>
-          <TraceIdSearchInput/>
+          <TraceJsonUploader />
+          <TraceIdSearchInput />
         </Box>
       </Box>
       <Grid container className={classes.lowerBox} justify="space-between">
