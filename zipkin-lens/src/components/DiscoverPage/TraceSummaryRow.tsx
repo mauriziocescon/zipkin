@@ -31,7 +31,7 @@ import styled from 'styled-components';
 import { selectColorByInfoClass } from '../../constants/color';
 import TraceSummary from '../../models/TraceSummary';
 import { formatDuration } from '../../util/timestamp';
-import ServiceBadge from '../common/ServiceBadge';
+import ServiceBadge from '../Common/ServiceBadge';
 
 interface TraceSummaryRowProps {
   traceSummary: TraceSummary;
