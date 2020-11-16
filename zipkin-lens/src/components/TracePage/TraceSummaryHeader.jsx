@@ -255,6 +255,7 @@ const TraceSummaryHeader = React.memo(({ traceSummary, rootSpanIndex }) => {
               href={prettifyUrl}
               target="_blank"
               rel="noopener"
+              data-testid="prettify-link"
             >
               <FontAwesomeIcon
                 icon={faFileAlt}
