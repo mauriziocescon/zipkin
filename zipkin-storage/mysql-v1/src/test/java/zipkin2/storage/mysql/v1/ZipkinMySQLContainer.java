@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2019 The OpenZipkin Authors
+ * Copyright 2015-2020 The OpenZipkin Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -18,7 +18,9 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import org.mariadb.jdbc.MariaDbDataSource;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.jdbc.ContainerLessJdbcDelegate;
+import org.testcontainers.utility.DockerImageName;
 
 import static org.testcontainers.ext.ScriptUtils.runInitScript;
 
@@ -26,9 +28,10 @@ final class ZipkinMySQLContainer extends GenericContainer<ZipkinMySQLContainer> 
 
   MariaDbDataSource dataSource;
 
-  ZipkinMySQLContainer(String image) {
+  ZipkinMySQLContainer(DockerImageName image) {
     super(image);
     withExposedPorts(3306);
+    waitStrategy = Wait.forHealthcheck();
   }
 
   MariaDbDataSource getDataSource() {

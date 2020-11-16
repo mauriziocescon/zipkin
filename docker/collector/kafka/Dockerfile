@@ -12,21 +12,33 @@
 # the License.
 #
 
-FROM openzipkin/zipkin-builder as install
+ARG java_version
 
-# Use latest stable release here. Scala 2.13+ supports JRE 14
-ENV KAFKA_VERSION=2.6.0 SCALA_VERSION=2.13
+# We copy files from the context into a scratch container first to avoid a problem where docker and
+# docker-compose don't share layer hashes https://github.com/docker/compose/issues/883 normally.
+# COPY --from= works around the issue.
+FROM scratch as scratch
+
+COPY docker/collector/kafka/install.sh /install/
+COPY docker/collector/kafka/docker-bin/* /docker-bin/
+
+FROM ghcr.io/openzipkin/java:${java_version} as install
+
+ARG kafka_version
+ENV KAFKA_VERSION=$kafka_version
+ARG scala_version
+ENV SCALA_VERSION=$scala_version
 
 WORKDIR /install
-COPY docker/collector/kafka/install.sh /tmp/
+COPY --from=scratch /install/install.sh /tmp/
 RUN /tmp/install.sh && rm /tmp/install.sh
 
 # Share the same base image to reduce layers used in testing
-FROM openzipkin/jre-full:15.0.0-15.27.17
-LABEL MAINTAINER Zipkin "https://zipkin.io/"
+FROM ghcr.io/openzipkin/java:${java_version}-jre as zipkin-kafka
+LABEL org.opencontainers.image.description="Kafka and ZooKeeper on OpenJDK and Alpine Linux"
 
 # Add HEALTHCHECK and ENTRYPOINT scripts into the default search path
-COPY docker/collector/kafka/docker-bin/* /usr/local/bin/
+COPY --from=scratch /docker-bin/* /usr/local/bin/
 # We use start period of 30s to avoid marking the container unhealthy on slow or contended CI hosts
 HEALTHCHECK --interval=1s --start-period=30s --timeout=5s CMD ["docker-healthcheck"]
 ENTRYPOINT ["start-kafka-zookeeper"]
@@ -43,7 +55,9 @@ USER ${USER}
 COPY --from=install --chown=${USER} /install .
 
 # ${KAFKA_ADVERTISED_HOST_NAME}:19092 is for connections from the Docker host
-ENV KAFKA_ADVERTISED_HOST_NAME=localhost \
-    KAFKA_HEAP_OPTS="-Xms256m -Xmx256m -XX:+ExitOnOutOfMemoryError"
+ENV KAFKA_ADVERTISED_HOST_NAME=localhost
+# Use to set heap, trust store or other system properties.
+ENV ZOOKEEPER_JAVA_OPTS="-Xms32m -Xmx32m -XX:+ExitOnOutOfMemoryError"
+ENV JAVA_OPTS="-Xms256m -Xmx256m -XX:+ExitOnOutOfMemoryError"
 
 EXPOSE 2181 9092 19092

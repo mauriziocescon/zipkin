@@ -12,27 +12,36 @@
 # the License.
 #
 
+# We don't use Java in this image, but we switch to a base layer that is managed by OpenZipkin
+ARG java_version
+
 # We copy files from the context into a scratch container first to avoid a problem where docker and
 # docker-compose don't share layer hashes https://github.com/docker/compose/issues/883 normally.
 # COPY --from= works around the issue.
 FROM scratch as scratch
 
-COPY zipkin-storage/mysql-v1/src/main/resources/mysql.sql /zipkin-schemas/mysql.sql
+COPY zipkin-storage/mysql-v1/src/main/resources/mysql.sql /zipkin-schemas/
+COPY docker/storage/mysql/install.sh /install/
+COPY docker/storage/mysql/docker-bin/* /docker-bin/
 
-FROM alpine:3.12 as install
+FROM ghcr.io/openzipkin/java:${java_version}-jre as install
 
 WORKDIR /install
 
 COPY --from=scratch /zipkin-schemas/* ./zipkin-schemas/
-COPY docker/storage/mysql/install.sh /tmp/
+COPY --from=scratch /install/install.sh /tmp/
+
+ARG mysql_version
+ENV MYSQL_VERSION=$mysql_version
 RUN /tmp/install.sh && rm /tmp/install.sh
 
-# Use a small base image at runtime
-FROM alpine:3.12
-LABEL MAINTAINER OpenZipkin "https://zipkin.io/"
+# Re-use the base layer other images use
+FROM ghcr.io/openzipkin/java:${java_version}-jre as zipkin-mysql
+LABEL org.opencontainers.image.description="MySQL on Alpine Linux with Zipkin schema pre-installed"
 
+ARG mysql_version
 # Add the mysql binary and handle installation edge cases
-RUN apk add --no-cache mysql && \
+RUN apk add --no-cache mysql=~$mysql_version && \
     # Prevent "Bind on unix socket: No such file or directory"
     mkdir -p /run/mysqld/ && chown -R mysql /run/mysqld/ && \
     # Enable networking
@@ -42,7 +51,7 @@ RUN apk add --no-cache mysql && \
     (cd /usr/bin; rm mysql_* aria_* mysqlbinlog myis* test-connect-t mysqlslap innochecksum resolve* my_print_defaults sst_dump)
 
 # Add HEALTHCHECK and ENTRYPOINT scripts into the default search path
-COPY docker/storage/mysql/docker-bin/* /usr/local/bin/
+COPY --from=scratch /docker-bin/* /usr/local/bin/
 # We use start period of 30s to avoid marking the container unhealthy on slow or contended CI hosts
 HEALTHCHECK --interval=1s --start-period=30s --timeout=5s CMD ["docker-healthcheck"]
 ENTRYPOINT ["start-mysql"]

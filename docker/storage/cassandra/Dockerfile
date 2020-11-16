@@ -12,6 +12,8 @@
 # the License.
 #
 
+ARG java_version
+
 # We copy files from the context into a scratch container first to avoid a problem where docker and
 # docker-compose don't share layer hashes https://github.com/docker/compose/issues/883 normally.
 # COPY --from= works around the issue.
@@ -19,25 +21,25 @@ FROM scratch as scratch
 
 COPY zipkin-storage/cassandra/src/main/resources/*.cql /zipkin-schemas/
 COPY zipkin-storage/cassandra-v1/src/main/resources/cassandra-schema.cql /zipkin-schemas/
+COPY docker/storage/cassandra/install.sh /install/
+COPY docker/storage/cassandra/docker-bin/* /docker-bin/
 
-# Until Cassandra supports recent JDKs, we need to install with the JDK 1.8
-FROM openzipkin/jre-full:1.8.0_252-b09 as install
+FROM ghcr.io/openzipkin/java:${java_version} as install
 
-# Use latest stable release here.
-ENV CASSANDRA_VERSION=3.11.8
+ARG cassandra_version
+ENV CASSANDRA_VERSION=$cassandra_version
 
 WORKDIR /install
 
 COPY --from=scratch /zipkin-schemas/* ./zipkin-schemas/
-COPY docker/storage/cassandra/install.sh /tmp/
+COPY --from=scratch /install/install.sh /tmp/
 RUN /tmp/install.sh && rm /tmp/install.sh
 
-# Share the same base image to reduce layers used in testing
-FROM openzipkin/jre-full:1.8.0_252-b09
-MAINTAINER OpenZipkin "https://zipkin.io/"
+FROM ghcr.io/openzipkin/java:${java_version}-jre as zipkin-cassandra
+LABEL org.opencontainers.image.description="Cassandra on OpenJDK and Alpine Linux with Zipkin keyspaces pre-installed"
 
 # Add HEALTHCHECK and ENTRYPOINT scripts into the default search path
-COPY docker/storage/cassandra/docker-bin/* /usr/local/bin/
+COPY --from=scratch /docker-bin/* /usr/local/bin/
 # We use start period of 30s to avoid marking the container unhealthy on slow or contended CI hosts
 HEALTHCHECK --interval=1s --start-period=30s --timeout=5s CMD ["docker-healthcheck"]
 ENTRYPOINT ["start-cassandra"]
@@ -54,9 +56,6 @@ USER ${USER}
 COPY --from=install --chown=${USER} /install .
 
 # Set variables Cassandra's start script wants
-#
-# Integration test currently use a single container for all suites, without cleaning up keyspaces
-# per method. For this reason, we use a higher heap size than 256m, which would be otherwise fine.
-ENV JVM_OPTS="-Xms512m -Xmx512m -XX:+ExitOnOutOfMemoryError -Djava.net.preferIPv4Stack=true"
+ENV JAVA_OPTS="-Xms256m -Xmx256m -XX:+ExitOnOutOfMemoryError -Djava.net.preferIPv4Stack=true"
 
 EXPOSE 9042

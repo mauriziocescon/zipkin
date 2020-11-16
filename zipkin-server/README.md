@@ -142,7 +142,7 @@ A value of 0 will disable the timeout completely. Defaults to 11s.
 * `QUERY_NAMES_MAX_AGE`: Controls the value of the `max-age` header zipkin-server responds with on
  http requests for autocompleted values in the UI (service names for example). Defaults to 300 seconds.
 * `QUERY_LOOKBACK`: How many milliseconds queries can look back from endTs; Defaults to 24 hours (two daily buckets: one for today and one for yesterday)
-* `STORAGE_TYPE`: SpanStore implementation: one of `mem`, `mysql`, `cassandra`, `elasticsearch`
+* `STORAGE_TYPE`: SpanStore implementation: one of `mem`, `mysql`, `cassandra3`, `elasticsearch`
 * `COLLECTOR_SAMPLE_RATE`: Percentage of traces to retain, defaults to always sample (1.0).
 * `AUTOCOMPLETE_KEYS`: list of span tag keys which will be returned by the `/api/v2/autocompleteTags` endpoint; Tag keys should be comma separated e.g. "instance_id,user_id,env"
 * `AUTOCOMPLETE_TTL`: How long in milliseconds to suppress calls to write the same autocomplete key/value pair. Default 3600000 (1 hr)
@@ -222,12 +222,12 @@ $ MEM_MAX_SPANS=1000000 java -Xmx1G -jar zipkin.jar
 ```
 
 ### Cassandra Storage
-Zipkin's [Cassandra storage component](../zipkin-storage/cassandra)
-supports version 3.11+ and applies when `STORAGE_TYPE` is set to `cassandra3`:
+Zipkin's [Cassandra storage component](../zipkin-storage/cassandra) supports Cassandra 3.11.3+
+and applies when `STORAGE_TYPE` is set to `cassandra3`:
 
     * `CASSANDRA_KEYSPACE`: The keyspace to use. Defaults to "zipkin2"
     * `CASSANDRA_CONTACT_POINTS`: Comma separated list of host addresses part of Cassandra cluster. You can also specify a custom port with 'host:port'. Defaults to localhost on port 9042.
-    * `CASSANDRA_LOCAL_DC`: Name of the datacenter that will be considered "local" for latency load balancing. When unset, load-balancing is round-robin.
+    * `CASSANDRA_LOCAL_DC`: Name of the datacenter that will be considered "local" for load balancing. Defaults to "datacenter1"
     * `CASSANDRA_ENSURE_SCHEMA`: Ensuring cassandra has the latest schema. If enabled tries to execute scripts in the classpath prefixed with `cassandra-schema-cql3`. Defaults to true
     * `CASSANDRA_USERNAME` and `CASSANDRA_PASSWORD`: Cassandra authentication. Will throw an exception on startup if authentication fails. No default
     * `CASSANDRA_USE_SSL`: Requires `javax.net.ssl.trustStore` and `javax.net.ssl.trustStorePassword`, defaults to false.
@@ -239,12 +239,10 @@ The following are tuning parameters which may not concern all users:
     * `CASSANDRA_INDEX_CACHE_TTL`: How many seconds to cache index metadata about a trace. Defaults to 60.
     * `CASSANDRA_INDEX_FETCH_MULTIPLIER`: How many more index rows to fetch than the user-supplied query limit. Defaults to 3.
 
-Example usage with Cassandra connection and query logging:
-
+Example usage with Cassandra with request logging (TRACE shows query values):
 ```bash
 $ STORAGE_TYPE=cassandra3 java -jar zipkin.jar \
- --logging.level.com.datastax.driver.core.Connection=debug \
- --logging.level.com.datastax.driver.core.QueryLogger.NORMAL=trace
+--logging.level.com.datastax.oss.driver.internal.core.tracker.RequestLogger=DEBUG
 ```
 
 ### Elasticsearch Storage
@@ -358,19 +356,6 @@ Example usage:
 
 ```bash
 $ STORAGE_TYPE=mysql MYSQL_USER=root java -jar zipkin.jar
-```
-
-#### Cassandra Storage
-Zipkin's [Legacy (v1) Cassandra storage component](../zipkin-storage/cassandra-v1)
-supports version 2.2+ and applies when `STORAGE_TYPE` is set to `cassandra`:
-
-The environment variables are the same as `STORAGE_TYPE=cassandra3`,
-except the default keyspace name is "zipkin".
-
-Example usage:
-
-```bash
-$ STORAGE_TYPE=cassandra java -jar zipkin.jar
 ```
 
 ### Throttled Storage (Experimental)
@@ -605,7 +590,7 @@ See [docker-zipkin](https://github.com/openzipkin/docker-zipkin) for details.
 To build and run the server from the currently checked out source, enter the following.
 ```bash
 # Build the server and also make its dependencies
-$ ./mvnw -q --batch-mode -DskipTests --also-make -pl zipkin-server clean install
+$ ./mvnw -T1C -q --batch-mode -DskipTests -Dlicense.skip=true --also-make -pl zipkin-server clean package
 # Run the server
 $ java -jar ./zipkin-server/target/zipkin-server-*exec.jar
 # or Run the slim server

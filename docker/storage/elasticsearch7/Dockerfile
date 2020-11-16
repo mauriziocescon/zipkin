@@ -12,24 +12,34 @@
 # the License.
 #
 
-FROM openzipkin/jre-full:15.0.0-15.27.17 as install
+ARG java_version
 
-ENV ELASTICSEARCH_VERSION 7.9.2
+# We copy files from the context into a scratch container first to avoid a problem where docker and
+# docker-compose don't share layer hashes https://github.com/docker/compose/issues/883 normally.
+# COPY --from= works around the issue.
+FROM scratch as scratch
+
+COPY docker/storage/elasticsearch7/config/ /config/
+COPY docker/storage/elasticsearch7/docker-bin/* /docker-bin/
+
+FROM ghcr.io/openzipkin/java:${java_version} as install
 
 WORKDIR /install
 
+ARG elasticsearch_version
+
 # Download only the OSS distribution (lacks X-Pack)
 # We don't download bin scripts as we customize for reasons including BusyBox problems
-RUN wget -qO- https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-oss-$ELASTICSEARCH_VERSION-no-jdk-linux-x86_64.tar.gz| tar xz \
+RUN wget -qO- https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-oss-${elasticsearch_version}-no-jdk-linux-x86_64.tar.gz| tar xz \
     --wildcards --strip=1 --exclude=*/bin
 
-COPY docker/storage/elasticsearch7/config /install/config
+COPY --from=scratch /config/ ./config/
 
-FROM openzipkin/jre-full:15.0.0-15.27.17
-LABEL MAINTAINER Zipkin "https://zipkin.io/"
+FROM ghcr.io/openzipkin/java:${java_version}-jre as zipkin-elasticsearch7
+LABEL org.opencontainers.image.description="Elasticsearch OSS distribution on OpenJDK and Alpine Linux"
 
 # Add HEALTHCHECK and ENTRYPOINT scripts into the default search path
-COPY docker/storage/elasticsearch7/docker-bin/* /usr/local/bin/
+COPY --from=scratch /docker-bin/* /usr/local/bin/
 # We use start period of 30s to avoid marking the container unhealthy on slow or contended CI hosts
 HEALTHCHECK --interval=1s --start-period=30s --timeout=5s CMD ["docker-healthcheck"]
 ENTRYPOINT ["start-elasticsearch"]

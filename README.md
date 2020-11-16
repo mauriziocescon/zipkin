@@ -1,5 +1,5 @@
 [![Gitter chat](https://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-brightgreen.svg)](https://gitter.im/openzipkin/zipkin)
-[![Build Status](https://travis-ci.org/openzipkin/zipkin.svg?branch=master)](https://travis-ci.org/openzipkin/zipkin) [![Download](https://api.bintray.com/packages/openzipkin/maven/zipkin/images/download.svg) ](https://bintray.com/openzipkin/maven/zipkin/_latestVersion)
+[![Build Status](https://travis-ci.com/openzipkin/zipkin.svg?branch=master)](https://travis-ci.com/openzipkin/zipkin)
 [![Maven Central](https://img.shields.io/maven-central/v/io.zipkin/zipkin-server.svg)](https://search.maven.org/search?q=g:io.zipkin%20AND%20a:zipkin-server)
 
 # zipkin
@@ -38,6 +38,7 @@ java -jar zipkin.jar
 
 You can also start Zipkin via Docker.
 ```bash
+# Note: this is mirrored as ghcr.io/openzipkin/zipkin
 docker run -d -p 9411:9411 openzipkin/zipkin
 ```
 
@@ -59,6 +60,7 @@ java -jar zipkin.jar
 
 Running via Docker:
 ```bash
+# Note: this is mirrored as ghcr.io/openzipkin/zipkin-slim
 docker run -d -p 9411:9411 openzipkin/zipkin-slim
 ```
 
@@ -173,18 +175,6 @@ This store does not require a [job to aggregate](https://github.com/openzipkin/z
 However, running the job will improve performance of dependencies
 queries.
 
-#### Cassandra
-The [Cassandra v1](zipkin-storage/cassandra-v1) component uses Cassandra
-2.2+ features, but is tested against the latest patch of Cassandra 3.11.
-
-The CQL was written in 2015, based on the original Cassandra schema from
-Twitter, and since been extended. Spans are stored as opaque thrifts,
-which means you cannot query fields in cqlsh. The schema was designed
-for scale, including manually implemented indexes to make querying
-larger data more performant.
-
-Note: This store requires a [job to aggregate](https://github.com/openzipkin/zipkin-dependencies) dependency links.
-
 ## Running the server from source
 The [Zipkin server](zipkin-server) receives spans via HTTP POST and respond to queries
 from its UI. It can also run collectors, such as RabbitMQ or Kafka.
@@ -203,12 +193,16 @@ Server artifacts are under the maven group id `io.zipkin`
 Library artifacts are under the maven group id `io.zipkin.zipkin2`
 
 ### Library Releases
-Releases are uploaded to [Bintray](https://bintray.com/openzipkin/maven/zipkin) and synchronized to [Maven Central](https://search.maven.org/#search%7Cga%7C1%7Cg%3A%22io.zipkin%22)
+Releases are at [Maven Central](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22io.zipkin%22)
+
 ### Library Snapshots
-Snapshots are uploaded to [JFrog](https://oss.jfrog.org/artifactory/oss-snapshot-local) after commits to master.
+Snapshots are uploaded to [Sonatype](https://oss.sonatype.org/content/repositories/snapshots) after
+commits to master.
+
 ### Docker Images
-Released versions of zipkin-server are published to Docker Hub as `openzipkin/zipkin`.
-See [docker](./docker) for details.
+Released versions of zipkin-server are published to Docker Hub as `openzipkin/zipkin` and GitHub
+Container Registry as `ghcr.io/openzipkin/zipkin`. See [docker](./docker) for details.
+
 ### Javadocs
 https://zipkin.io/zipkin contains versioned folders with JavaDocs published on each (non-PR) build, as well
 as releases.
