@@ -13,16 +13,28 @@
  */
 package zipkin2.elasticsearch.integration;
 
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import zipkin2.elasticsearch.ElasticsearchStorage;
+
+import static zipkin2.elasticsearch.integration.ElasticsearchStorageExtension.index;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ITElasticsearchStorageV7 extends ITElasticsearchStorage {
 
   @RegisterExtension ElasticsearchStorageExtension backend = new ElasticsearchStorageExtension(
-    "openzipkin/zipkin-elasticsearch7:2.19.3");
+    "openzipkin/zipkin-elasticsearch7:2.21.7", null);
 
   @Override ElasticsearchStorageExtension backend() {
     return backend;
+  }
+
+  @Nested
+  class ITEnsureIndexTemplate extends zipkin2.elasticsearch.integration.ITEnsureIndexTemplate {
+    @Override protected ElasticsearchStorage.Builder newStorageBuilder(TestInfo testInfo) {
+      return backend().computeStorageBuilder().index(index(testInfo));
+    }
   }
 }

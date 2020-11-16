@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2019 The OpenZipkin Authors
+ * Copyright 2015-2020 The OpenZipkin Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -13,32 +13,30 @@
  */
 package zipkin2.storage.cassandra;
 
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.ResultSetFuture;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 import zipkin2.Call;
 import zipkin2.storage.cassandra.internal.call.DistinctSortedStrings;
 import zipkin2.storage.cassandra.internal.call.ResultSetFutureCall;
 
 import static zipkin2.storage.cassandra.Schema.TABLE_SERVICE_SPANS;
 
-final class SelectServiceNames extends ResultSetFutureCall<ResultSet> {
-  static class Factory {
-    final Session session;
+final class SelectServiceNames extends ResultSetFutureCall<AsyncResultSet> {
+  static final class Factory {
+    final CqlSession session;
     final PreparedStatement preparedStatement;
-    final DistinctSortedStrings services = new DistinctSortedStrings("service");
 
-    Factory(Session session) {
+    Factory(CqlSession session) {
       this.session = session;
-      this.preparedStatement =
-          session.prepare(QueryBuilder.select("service").distinct().from(TABLE_SERVICE_SPANS));
+      this.preparedStatement = session.prepare("SELECT DISTINCT service"
+          + " FROM " + TABLE_SERVICE_SPANS);
     }
 
     Call<List<String>> create() {
-      return new SelectServiceNames(this).flatMap(services);
+      return new SelectServiceNames(this).flatMap(DistinctSortedStrings.get());
     }
   }
 
@@ -48,11 +46,11 @@ final class SelectServiceNames extends ResultSetFutureCall<ResultSet> {
     this.factory = factory;
   }
 
-  @Override protected ResultSetFuture newFuture() {
+  @Override protected CompletionStage<AsyncResultSet> newCompletionStage() {
     return factory.session.executeAsync(factory.preparedStatement.bind());
   }
 
-  @Override public ResultSet map(ResultSet input) {
+  @Override public AsyncResultSet map(AsyncResultSet input) {
     return input;
   }
 

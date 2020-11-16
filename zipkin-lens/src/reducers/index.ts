@@ -11,34 +11,28 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
+
 import { combineReducers } from 'redux';
 
 import appSlice from '../components/App/slice';
+import autocompleteKeysSlice from '../slices/autocompleteKeysSlice';
+import autocompleteValuesSlice from '../slices/autocompleteValuesSlice';
+import dependenciesSlice from '../slices/dependenciesSlice';
+import remoteServicesSlice from '../slices/remoteServicesSlice';
+import servicesSlice from '../slices/servicesSlice';
+import spansSlice from '../slices/spansSlice';
+import tracesSlice from '../slices/tracesSlice';
 
-import remoteServices from './remote-services';
-import spans from './spans';
-import trace from './trace';
-import traces from './traces';
-import services from './services';
-import dependencies from './dependencies';
-import createGlobalSearch from './global-search';
-import autocompleteKeys from './autocomplete-keys';
-import autocompleteValues from './autocomplete-values';
-import traceViewer from './trace-viewer';
-
-const createReducer = (config: any) =>
+const createReducer = () =>
   combineReducers({
     [appSlice.name]: appSlice.reducer,
-    remoteServices,
-    spans,
-    trace,
-    traces,
-    services,
-    dependencies,
-    globalSearch: createGlobalSearch(config),
-    autocompleteKeys,
-    autocompleteValues,
-    traceViewer,
+    [autocompleteKeysSlice.name]: autocompleteKeysSlice.reducer,
+    [autocompleteValuesSlice.name]: autocompleteValuesSlice.reducer,
+    [dependenciesSlice.name]: dependenciesSlice.reducer,
+    [remoteServicesSlice.name]: remoteServicesSlice.reducer,
+    [servicesSlice.name]: servicesSlice.reducer,
+    [spansSlice.name]: spansSlice.reducer,
+    [tracesSlice.name]: tracesSlice.reducer,
   });
 
 export default createReducer;

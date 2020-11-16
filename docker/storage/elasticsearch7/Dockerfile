@@ -12,41 +12,48 @@
 # the License.
 #
 
-FROM alpine
+ARG java_version
 
-ENV ELASTICSEARCH_VERSION 7.7.0
+# We copy files from the context into a scratch container first to avoid a problem where docker and
+# docker-compose don't share layer hashes https://github.com/docker/compose/issues/883 normally.
+# COPY --from= works around the issue.
+FROM scratch as scratch
 
-RUN apk add --update curl
+COPY docker/storage/elasticsearch7/config/ /config/
+COPY docker/storage/elasticsearch7/docker-bin/* /docker-bin/
 
-WORKDIR /elasticsearch
+FROM openzipkin/zipkin-builder as install
 
-RUN curl -sSL https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-$ELASTICSEARCH_VERSION-linux-x86_64.tar.gz| tar xz && \
-    mv elasticsearch-$ELASTICSEARCH_VERSION/* /elasticsearch/ && \
-    # disable ML as not supported on alpine per https://discuss.elastic.co/t/elasticsearch-failing-to-start-due-to-x-pack/85125/6
-    rm -rf /elasticsearch/modules/x-pack-ml/platform/linux-x86_64
+ENV ELASTICSEARCH_VERSION 7.9.2
 
-COPY docker/storage/elasticsearch7/config /elasticsearch/config
+WORKDIR /install
 
-# Overwrite environment script to fix parse failures when run with busybox.
-COPY docker/storage/elasticsearch7/elasticsearch-env /elasticsearch/bin/elasticsearch-env
+# Download only the OSS distribution (lacks X-Pack)
+# We don't download bin scripts as we customize for reasons including BusyBox problems
+RUN wget -qO- https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-oss-$ELASTICSEARCH_VERSION-no-jdk-linux-x86_64.tar.gz| tar xz \
+    --wildcards --strip=1 --exclude=*/bin
 
-FROM openzipkin/jre-full:13.0.3-13.31.11
-LABEL MAINTAINER Zipkin "https://zipkin.io/"
+COPY --from=scratch /config/ ./config/
 
-# https://github.com/elastic/elasticsearch/pull/31003 was closed won't fix
-ENV ES_TMPDIR /tmp
+FROM openzipkin/java:${java_version}-jre as zipkin-elasticsearch7
 
-RUN ["/busybox/sh", "-c", "adduser -g '' -h /elasticsearch -D elasticsearch"]
+# Add HEALTHCHECK and ENTRYPOINT scripts into the default search path
+COPY --from=scratch /docker-bin/* /usr/local/bin/
+# We use start period of 30s to avoid marking the container unhealthy on slow or contended CI hosts
+HEALTHCHECK --interval=1s --start-period=30s --timeout=5s CMD ["docker-healthcheck"]
+ENTRYPOINT ["start-elasticsearch"]
 
-COPY --from=0 --chown=elasticsearch /elasticsearch /elasticsearch
+# All content including binaries and logs write under WORKDIR
+ARG USER=elasticsearch
+WORKDIR /${USER}
 
-WORKDIR /elasticsearch
+# Ensure the process doesn't run as root
+RUN adduser -g '' -h ${PWD} -D ${USER}
+USER ${USER}
 
-# elasticsearch complains if run as root
-USER elasticsearch
+# Copy binaries and config we installed earlier
+COPY --from=install --chown=${USER} /install .
 
-EXPOSE 9200 9300
-
-ENV ES_JAVA_OPTS " "
-
-ENTRYPOINT ["/busybox/sh", "/elasticsearch/bin/elasticsearch"]
+# Use to set heap, trust store or other system properties.
+ENV JAVA_OPTS="-Xms256m -Xmx256m -XX:+ExitOnOutOfMemoryError"
+EXPOSE 9200

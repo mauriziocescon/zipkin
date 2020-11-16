@@ -119,7 +119,7 @@ public class ZipkinPrometheusMetricsConfiguration {
     @Override
     public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
       setup(ctx, registry, metricName);
-      return delegate().serve(ctx, req);
+      return unwrap().serve(ctx, req);
     }
   }
 
@@ -129,10 +129,10 @@ public class ZipkinPrometheusMetricsConfiguration {
 
   @SuppressWarnings("FutureReturnValueIgnored") // no known action to take following .thenAccept
   public static void setup(RequestContext ctx, MeterRegistry registry, String metricName) {
-    if (ctx.setAttrIfAbsent(PROMETHEUS_METRICS_SET, true) != null) {
+    if (ctx.hasAttr(PROMETHEUS_METRICS_SET)) {
       return;
     }
-
+    ctx.setAttr(PROMETHEUS_METRICS_SET, true);
     ctx.log().whenComplete().thenAccept(log -> getTimeBuilder(log, metricName).register(registry)
       .record(log.totalDurationNanos(), TimeUnit.NANOSECONDS));
   }

@@ -40,8 +40,6 @@ class VersionSpecificTemplatesTest {
     assertThat(template.autocomplete())
       .withFailMessage("Until v7.x, we delimited index and type with a colon")
       .contains("\"template\": \"zipkin:autocomplete-*\"");
-    assertThat(template.autocomplete())
-      .contains("\"index.mapper.dynamic\": false");
   }
 
   @Test void version6() {
@@ -51,8 +49,6 @@ class VersionSpecificTemplatesTest {
     assertThat(template.autocomplete())
       .withFailMessage("Until v7.x, we delimited index and type with a colon")
       .contains("\"index_patterns\": \"zipkin:autocomplete-*\"");
-    assertThat(template.autocomplete())
-      .contains("\"index.mapper.dynamic\": false");
   }
 
   @Test void version6_wrapsPropertiesWithType() {
@@ -105,6 +101,84 @@ class VersionSpecificTemplatesTest {
       + "      \"tagValue\": { \"type\": \"keyword\", \"norms\": false }\n"
       + "    }\n"
       + "  }");
+  }
+
+  @Test void version78_legacy() {
+    IndexTemplates template = storage.versionSpecificTemplates(7.8f);
+
+    assertThat(template.version()).isEqualTo(7.8f);
+    assertThat(template.autocomplete())
+      .withFailMessage("Starting at v7.x, we delimit index and type with hyphen")
+      .contains("\"index_patterns\": \"zipkin-autocomplete-*\"");
+    assertThat(template.span())
+      .doesNotContain("\"template\": {\n")
+      .doesNotContain("\"priority\": 0\n");
+    assertThat(template.autocomplete())
+      .doesNotContain("\"template\": {\n")
+      .doesNotContain("\"priority\": 0\n");
+    assertThat(template.dependency())
+      .doesNotContain("\"template\": {\n")
+      .doesNotContain("\"priority\": 0\n");
+  }
+
+  @Test void version78_composable() {
+    // Set up a new storage with priority
+    storage.close();
+    storage = ElasticsearchStorage.newBuilder(() -> mock(WebClient.class)).templatePriority(0).build();
+    IndexTemplates template = storage.versionSpecificTemplates(7.8f);
+
+    assertThat(template.version()).isEqualTo(7.8f);
+    assertThat(template.autocomplete())
+      .withFailMessage("Starting at v7.x, we delimit index and type with hyphen")
+      .contains("\"index_patterns\": \"zipkin-autocomplete-*\"");
+    assertThat(template.span())
+      .contains("\"template\": {\n")
+      .contains("\"priority\": 0\n");
+    assertThat(template.autocomplete())
+      .contains("\"template\": {\n")
+      .contains("\"priority\": 0\n");
+    assertThat(template.dependency())
+      .contains("\"template\": {\n")
+      .contains("\"priority\": 0\n");
+  }
+
+  @Test void version79_legacy() {
+    IndexTemplates template = storage.versionSpecificTemplates(7.9f);
+
+    assertThat(template.version()).isEqualTo(7.9f);
+    assertThat(template.autocomplete())
+      .withFailMessage("Starting at v7.x, we delimit index and type with hyphen")
+      .contains("\"index_patterns\": \"zipkin-autocomplete-*\"");
+    assertThat(template.span())
+      .doesNotContain("\"template\": {\n")
+      .doesNotContain("\"priority\": 0\n");
+    assertThat(template.autocomplete())
+      .doesNotContain("\"template\": {\n")
+      .doesNotContain("\"priority\": 0\n");
+    assertThat(template.dependency())
+      .doesNotContain("\"template\": {\n")
+      .doesNotContain("\"priority\": 0\n");
+  }
+
+  @Test void version79_composable() {
+    // Set up a new storage with priority
+    storage.close();
+    storage = ElasticsearchStorage.newBuilder(() -> mock(WebClient.class)).templatePriority(0).build();
+    IndexTemplates template = storage.versionSpecificTemplates(7.9f);
+
+    assertThat(template.version()).isEqualTo(7.9f);
+    assertThat(template.autocomplete())
+      .withFailMessage("Starting at v7.x, we delimit index and type with hyphen")
+      .contains("\"index_patterns\": \"zipkin-autocomplete-*\"");
+    assertThat(template.span())
+      .contains("\"template\": {\n")
+      .contains("\"priority\": 0\n");
+    assertThat(template.autocomplete())
+      .contains("\"template\": {\n")
+      .contains("\"priority\": 0\n");
+    assertThat(template.dependency())
+      .contains("\"template\": {\n")
+      .contains("\"priority\": 0\n");
   }
 
   @Test void searchEnabled_minimalSpanIndexing_6x() {

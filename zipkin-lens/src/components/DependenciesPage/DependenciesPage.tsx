@@ -11,29 +11,35 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
+
+import { faSearch, faProjectDiagram } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { t, Trans } from '@lingui/macro';
+import { useLingui } from '@lingui/react';
+import {
+  Box,
+  Button,
+  Theme,
+  createStyles,
+  makeStyles,
+} from '@material-ui/core';
+import { KeyboardDateTimePicker } from '@material-ui/pickers';
+import { MaterialUiPickersDate } from '@material-ui/pickers/typings/date';
+import { History, Location } from 'history';
+import moment from 'moment';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { withRouter, RouteComponentProps } from 'react-router-dom';
-import { t, Trans } from '@lingui/macro';
-import { useLingui } from '@lingui/react';
-import { makeStyles, Theme, createStyles } from '@material-ui/core/styles';
-import { Box, Typography, Button, CircularProgress } from '@material-ui/core';
-import { KeyboardDateTimePicker } from '@material-ui/pickers';
-import { MaterialUiPickersDate } from '@material-ui/pickers/typings/date';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch } from '@fortawesome/free-solid-svg-icons';
-import moment from 'moment';
-import { History, Location } from 'history';
 
-import ExplainBox from './ExplainBox';
-import TraceJsonUploader from '../Common/TraceJsonUploader';
-import TraceIdSearchInput from '../Common/TraceIdSearchInput';
-import {
-  loadDependencies,
-  clearDependencies,
-} from '../../actions/dependencies-action';
-import RootState from '../../types/RootState';
 import DependenciesGraph from './DependenciesGraph';
+import { clearAlert, setAlert } from '../App/slice';
+import ExplainBox from '../common/ExplainBox';
+import {
+  clearDependencies,
+  loadDependencies,
+} from '../../slices/dependenciesSlice';
+import { RootState } from '../../store';
+import { LoadingIndicator } from '../common/LoadingIndicator';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -113,7 +119,7 @@ const useFetchDependencies = (timeRange: {
   }, [dispatch, timeRange.endTime, timeRange.startTime]);
 };
 
-const DependenciesPage: React.FC<DependenciesPageProps> = ({
+const DependenciesPageImpl: React.FC<DependenciesPageProps> = ({
   history,
   location,
 }) => {
@@ -132,9 +138,22 @@ const DependenciesPage: React.FC<DependenciesPageProps> = ({
   });
   useFetchDependencies(timeRange);
 
-  const { isLoading, dependencies } = useSelector(
+  const { isLoading, dependencies, error } = useSelector(
     (state: RootState) => state.dependencies,
   );
+
+  useEffect(() => {
+    if (error) {
+      dispatch(
+        setAlert({
+          message: 'Failed to load dependencies...',
+          severity: 'error',
+        }),
+      );
+    } else {
+      dispatch(clearAlert());
+    }
+  }, [error, dispatch]);
 
   const handleStartTimeChange = useCallback(
     (startTime: MaterialUiPickersDate) => {
@@ -166,62 +185,32 @@ const DependenciesPage: React.FC<DependenciesPageProps> = ({
 
   let content: JSX.Element;
   if (isLoading) {
-    content = (
-      <Box
-        width="100%"
-        height="100%"
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        data-testid="loading-indicator"
-      >
-        <CircularProgress />
-      </Box>
-    );
+    content = <LoadingIndicator />;
   } else if (dependencies.length > 0) {
     content = <DependenciesGraph dependencies={dependencies} />;
   } else {
     content = (
-      <Box
-        width="100%"
-        height="100%"
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        data-testid="explain-box"
-      >
-        <ExplainBox />
-      </Box>
+      <ExplainBox
+        icon={faProjectDiagram}
+        headerText={<Trans>Search Dependencies</Trans>}
+        text={
+          <Trans>
+            Please select the start and end time. Then, click the search button.
+          </Trans>
+        }
+      />
     );
   }
 
   return (
-    <Box width="100%" height="100vh" display="flex" flexDirection="column">
-      <Box boxShadow={3} zIndex={2}>
-        <Box
-          pl={3}
-          pr={3}
-          display="flex"
-          justifyContent="space-between"
-          alignItems="center"
-        >
-          <Typography variant="h5">
-            <Trans>Dependencies</Trans>
-          </Typography>
-          <Box pr={3} display="flex" alignItems="center">
-            <TraceJsonUploader />
-            <TraceIdSearchInput />
-          </Box>
-        </Box>
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          pt={0.75}
-          pb={0.75}
-          borderColor="divider"
-          borderTop={1}
-        >
+    <Box
+      width="100%"
+      height="calc(100vh - 64px)"
+      display="flex"
+      flexDirection="column"
+    >
+      <Box bgcolor="background.paper" boxShadow={3} p={3}>
+        <Box display="flex" justifyContent="center" alignItems="center">
           <KeyboardDateTimePicker
             label={i18n._(t`Start Time`)}
             inputVariant="outlined"
@@ -252,9 +241,11 @@ const DependenciesPage: React.FC<DependenciesPageProps> = ({
           </Button>
         </Box>
       </Box>
-      <Box flexGrow={1}>{content}</Box>
+      <Box m={4} flexGrow={1}>
+        {content}
+      </Box>
     </Box>
   );
 };
 
-export default withRouter(DependenciesPage);
+export default withRouter(DependenciesPageImpl);

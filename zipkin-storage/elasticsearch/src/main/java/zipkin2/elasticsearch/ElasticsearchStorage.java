@@ -162,6 +162,15 @@ public abstract class ElasticsearchStorage extends zipkin2.storage.StorageCompon
     /** False disables automatic index template installation. */
     public abstract Builder ensureTemplates(boolean ensureTemplates);
 
+    /**
+     * Only valid when the destination is Elasticsearch >= 7.8. Indicates the index template
+     * priority in case of multiple matching templates. The template with highest priority is used.
+     * Default to 0.
+     *
+     * <p>See https://www.elastic.co/guide/en/elasticsearch/reference/7.8/_index_template_and_settings_priority.html
+     */
+    public abstract Builder templatePriority(@Nullable Integer templatePriority);
+
     /** {@inheritDoc} */
     @Override public abstract Builder strictTraceId(boolean strictTraceId);
 
@@ -212,6 +221,8 @@ public abstract class ElasticsearchStorage extends zipkin2.storage.StorageCompon
   abstract boolean ensureTemplates();
 
   public abstract int namesLookback();
+
+  @Nullable abstract Integer templatePriority();
 
   @Override public SpanStore spanStore() {
     ensureIndexTemplates();
@@ -337,12 +348,25 @@ public abstract class ElasticsearchStorage extends zipkin2.storage.StorageCompon
       indexReplicas(),
       indexShards(),
       searchEnabled(),
-      strictTraceId()
+      strictTraceId(),
+      templatePriority()
     ).get(version);
   }
 
   String buildUrl(IndexTemplates templates, String type) {
     String indexPrefix = indexNameFormatter().index() + templates.indexTypeDelimiter();
+
+    if (version() >= 7.8f && templatePriority() != null) {
+      return "/_index_template/" + indexPrefix + type + "_template";
+    }
+    if (version() < 7f) {
+      // because deprecation warning on 6 to prepare for 7 :
+      //
+      // [types removal] The parameter include_type_name should be explicitly specified in get
+      // template requests to prepare for 7.0. In 7.0 include_type_name will default to 'false',
+      // which means responses will omit the type name in mapping definitions."
+      return "/_template/" + indexPrefix + type + "_template?include_type_name=true";
+    }
     return "/_template/" + indexPrefix + type + "_template";
   }
 

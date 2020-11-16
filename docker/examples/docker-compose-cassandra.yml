@@ -1,5 +1,5 @@
 #
-# Copyright 2015-2019 The OpenZipkin Authors
+# Copyright 2015-2020 The OpenZipkin Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -18,30 +18,47 @@
 # It extends the default configuration from docker-compose.yml to run the
 # zipkin-cassandra container instead of the zipkin-mysql container.
 
-version: '2'
+version: '2.4'
 
 services:
-  # Run Cassandra instead of MySQL
   storage:
-    image: openzipkin/zipkin-cassandra
+    image: openzipkin/zipkin-cassandra:${TAG:-latest}
+    # Uncomment to use DSE instead (minimum version 5.1)
+    # image: datastax/dse-server:5.1.20
+    # environment:
+    #  - DS_LICENSE=accept
     container_name: cassandra
     # Uncomment to expose the storage port for testing
     # ports:
     #   - 9042:9042
 
-  # Switch storage type to Cassandra
+  # Use Cassandra instead of in-memory storage
   zipkin:
+    extends:
+      file: docker-compose.yml
+      service: zipkin
+    # slim doesn't include Cassandra support, so switch to the larger image
+    image: openzipkin/zipkin:${TAG:-latest}
     environment:
       - STORAGE_TYPE=cassandra3
-      # When using the test docker image, or have schema pre-installed, you don't need to re-install it
+      # When using the test docker image, or have schema pre-installed, you don't need to ensure it
       - CASSANDRA_ENSURE_SCHEMA=false
-      # When overriding this value, note the minimum supported version is 3.9
-      # If you you cannot run 3.9+, but can run 2.2+, set STORAGE_TYPE=cassandra
+      # When overriding this value, note the minimum supported version is 3.11.3
       - CASSANDRA_CONTACT_POINTS=cassandra
+      # Uncomment to configure authentication
+      # - CASSANDRA_USERNAME=cassandra
+      # - CASSANDRA_PASSWORD=cassandra
+    # Uncomment to enable request logging (TRACE shows query values)
+    # command: --logging.level.com.datastax.oss.driver.internal.core.tracker.RequestLogger=TRACE
     depends_on:
       - storage
 
   dependencies:
+    extends:
+      file: docker-compose-dependencies.yml
+      service: dependencies
     environment:
-      - STORAGE_TYPE=cassandra3
+      - STORAGE_TYPE=${STORAGE_TYPE:-cassandra3}
       - CASSANDRA_CONTACT_POINTS=cassandra
+    depends_on:
+      - storage

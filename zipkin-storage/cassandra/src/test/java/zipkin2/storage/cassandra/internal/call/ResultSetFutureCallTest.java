@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2019 The OpenZipkin Authors
+ * Copyright 2015-2020 The OpenZipkin Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -13,86 +13,101 @@
  */
 package zipkin2.storage.cassandra.internal.call;
 
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.exceptions.BusyConnectionException;
-import com.datastax.driver.core.exceptions.BusyPoolException;
-import com.datastax.driver.core.exceptions.QueryConsistencyException;
-import java.net.InetSocketAddress;
-import java.util.concurrent.Future;
+import com.datastax.oss.driver.api.core.RequestThrottlingException;
+import com.datastax.oss.driver.api.core.connection.BusyConnectionException;
+import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
+import com.datastax.oss.driver.api.core.servererrors.QueryConsistencyException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.junit.Test;
+import zipkin2.Call;
 import zipkin2.Callback;
 
-import static com.google.common.util.concurrent.JdkFutureAdapters.listenInPoolThread;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
-import static org.mockito.Answers.CALLS_REAL_METHODS;
-import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 
 public class ResultSetFutureCallTest {
-  Future<ResultSet> future = mock(Future.class);
-  ResultSet resultSet = mock(ResultSet.class);
+  CompletableFuture<AsyncResultSet> future = new CompletableFuture<>();
+  AsyncResultSet resultSet = mock(AsyncResultSet.class);
 
-  ResultSetFutureCall<ResultSet> call =
-    mock(ResultSetFutureCall.class, withSettings().defaultAnswer(CALLS_REAL_METHODS));
-  Callback<ResultSet> callback = mock(Callback.class);
-
-  @Test public void submit_cancel_beforeCreateFuture() {
-    call.cancel();
-
-    assertThat(call.isCanceled()).isTrue();
-  }
-
-  @Test public void submit_callsFutureGet() throws Exception {
-    when(call.newFuture()).thenReturn(listenInPoolThread(future));
-    when(call.map(resultSet)).thenReturn(resultSet);
-
-    when(future.isDone()).thenReturn(true);
-    when(future.get()).thenReturn(resultSet);
-
-    call.enqueue(callback);
-
-    verify(future).isDone();
-    verify(future).get();
-
-    verify(callback).onSuccess(resultSet);
-    verifyNoMoreInteractions(future, callback);
-  }
-
-  @Test public void submit_cancel_afterEnqueue() {
-    when(call.newFuture()).thenReturn(listenInPoolThread(future));
-    call.enqueue(callback);
-    call.cancel();
-
-    assertThat(call.isCanceled()).isTrue();
-    verify(future).cancel(true);
-  }
-
-  @Test public void submit_callbackError_onErrorCreatingFuture() {
-    when(call.newFuture()).thenThrow(new IllegalArgumentException());
-
-    // ensure exception is re-thrown
-    try {
-      call.enqueue(callback);
-      failBecauseExceptionWasNotThrown(IllegalArgumentException.class);
-    } catch (IllegalArgumentException e) {
+  ResultSetFutureCall<AsyncResultSet> call = new ResultSetFutureCall<AsyncResultSet>() {
+    @Override protected CompletionStage<AsyncResultSet> newCompletionStage() {
+      return ResultSetFutureCallTest.this.future;
     }
 
+    @Override public Call<AsyncResultSet> clone() {
+      return null;
+    }
+
+    @Override public AsyncResultSet map(AsyncResultSet input) {
+      return input;
+    }
+  };
+
+  static final class CompletableCallback<T> extends CompletableFuture<T> implements Callback<T> {
+    @Override public void onSuccess(T value) {
+      complete(value);
+    }
+
+    @Override public void onError(Throwable t) {
+      completeExceptionally(t);
+    }
+  }
+
+  CompletableCallback<AsyncResultSet> callback = new CompletableCallback<>();
+
+  @Test public void enqueue_cancel_beforeCreateFuture() {
+    call.cancel();
+
+    assertThat(call.isCanceled()).isTrue();
+  }
+
+  @Test public void enqueue_callsFutureGet() throws Exception {
+    call.enqueue(callback);
+
+    future.complete(resultSet);
+
+    assertThat(callback.get()).isEqualTo(resultSet);
+  }
+
+  @Test public void enqueue_cancel_afterEnqueue() {
+    call.enqueue(callback);
+    call.cancel();
+
+    assertThat(call.isCanceled()).isTrue();
+    // this.future will be wrapped, so can't check if that is canceled.
+    assertThat(call.future.isCancelled()).isTrue();
+  }
+
+  @Test public void enqueue_callbackError_onErrorCreatingFuture() {
+    IllegalArgumentException error = new IllegalArgumentException();
+    call = new ResultSetFutureCall<AsyncResultSet>() {
+      @Override protected CompletionStage<AsyncResultSet> newCompletionStage() {
+        throw error;
+      }
+
+      @Override public Call<AsyncResultSet> clone() {
+        return null;
+      }
+
+      @Override public AsyncResultSet map(AsyncResultSet input) {
+        return input;
+      }
+    };
+
+    call.enqueue(callback);
+
     // ensure the callback received the exception
-    verify(callback).onError(any(IllegalArgumentException.class));
-    verifyNoMoreInteractions(callback);
+    assertThat(callback.isCompletedExceptionally()).isTrue();
+    assertThatThrownBy(callback::get).hasCause(error);
   }
 
   // below are load related exceptions which should result in a backoff of storage requests
   @Test public void isOverCapacity() {
-    InetSocketAddress sa = InetSocketAddress.createUnresolved("host", 9402);
-
-    assertThat(ResultSetFutureCall.isOverCapacity(new BusyPoolException(() -> sa, 100))).isTrue();
-    assertThat(ResultSetFutureCall.isOverCapacity(new BusyConnectionException(() -> sa))).isTrue();
+    assertThat(ResultSetFutureCall.isOverCapacity(
+      new RequestThrottlingException("The session is shutting down"))).isTrue();
+    assertThat(ResultSetFutureCall.isOverCapacity(new BusyConnectionException(100))).isTrue();
     assertThat(ResultSetFutureCall.isOverCapacity(mock(QueryConsistencyException.class))).isTrue();
 
     // not applicable

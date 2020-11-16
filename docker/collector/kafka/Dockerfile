@@ -12,31 +12,49 @@
 # the License.
 #
 
-FROM alpine
+ARG java_version
 
-ENV SCALA_VERSION 2.12
-ENV KAFKA_VERSION 2.5.0
+# We copy files from the context into a scratch container first to avoid a problem where docker and
+# docker-compose don't share layer hashes https://github.com/docker/compose/issues/883 normally.
+# COPY --from= works around the issue.
+FROM scratch as scratch
 
-WORKDIR /kafka
-ADD docker/collector/kafka/install.sh /kafka/install
-RUN /kafka/install
+COPY docker/collector/kafka/install.sh /install/
+COPY docker/collector/kafka/docker-bin/* /docker-bin/
 
-ADD docker/collector/kafka/wait-for-zookeeper.sh /kafka/bin
-ADD docker/collector/kafka/start.sh /kafka/bin
+FROM openzipkin/zipkin-builder as install
+
+# Use latest stable release here. Scala 2.13+ supports JRE 14
+ENV KAFKA_VERSION=2.6.0 SCALA_VERSION=2.13
+
+WORKDIR /install
+COPY --from=scratch /install/install.sh /tmp/
+RUN /tmp/install.sh && rm /tmp/install.sh
 
 # Share the same base image to reduce layers used in testing
-FROM openzipkin/jre-full:13.0.3-13.31.11
-LABEL MAINTAINER Zipkin "https://zipkin.io/"
+FROM openzipkin/java:${java_version}-jre as zipkin-kafka
 
-WORKDIR /kafka
+# Add HEALTHCHECK and ENTRYPOINT scripts into the default search path
+COPY --from=scratch /docker-bin/* /usr/local/bin/
+# We use start period of 30s to avoid marking the container unhealthy on slow or contended CI hosts
+HEALTHCHECK --interval=1s --start-period=30s --timeout=5s CMD ["docker-healthcheck"]
+ENTRYPOINT ["start-kafka-zookeeper"]
 
-RUN ["/busybox/sh", "-c", "adduser -g '' -h /kafka -D kafka"]
+# All content including binaries and logs write under WORKDIR
+ARG USER=kafka
+WORKDIR /${USER}
 
-COPY --from=0 --chown=kafka /kafka /kafka
+# Ensure the process doesn't run as root
+RUN adduser -g '' -h ${PWD} -D ${USER}
+USER ${USER}
 
-USER kafka
+# Copy binaries and config we installed earlier
+COPY --from=install --chown=${USER} /install .
 
-# Port 19092 is for connections from the Docker host
+# ${KAFKA_ADVERTISED_HOST_NAME}:19092 is for connections from the Docker host
+ENV KAFKA_ADVERTISED_HOST_NAME=localhost
+# Use to set heap, trust store or other system properties.
+ENV ZOOKEEPER_JAVA_OPTS="-Xms32m -Xmx32m -XX:+ExitOnOutOfMemoryError"
+ENV JAVA_OPTS="-Xms256m -Xmx256m -XX:+ExitOnOutOfMemoryError"
+
 EXPOSE 2181 9092 19092
-
-ENTRYPOINT ["/busybox/sh", "/kafka/bin/start.sh"]

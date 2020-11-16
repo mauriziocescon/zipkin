@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2019 The OpenZipkin Authors
+ * Copyright 2015-2020 The OpenZipkin Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -13,25 +13,30 @@
  */
 package zipkin2.storage.cassandra.v1;
 
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
 
 final class LazySession {
-  private final SessionFactory sessionFactory;
-  private final CassandraStorage storage;
-  private volatile Session session;
-  private volatile Schema.Metadata metadata; // guarded by session
+  final SessionFactory sessionFactory;
+  final CassandraStorage storage;
+  volatile CqlSession session;
+  volatile PreparedStatement healthCheck; // guarded by session
+  volatile Schema.Metadata metadata; // guarded by session
 
   LazySession(SessionFactory sessionFactory, CassandraStorage storage) {
     this.sessionFactory = sessionFactory;
     this.storage = storage;
   }
 
-  Session get() {
+  CqlSession get() {
     if (session == null) {
       synchronized (this) {
         if (session == null) {
           session = sessionFactory.create(storage);
-          metadata = Schema.readMetadata(session); // warn only once when schema problems exist
+          // cached here to warn only once when schema problems exist
+          metadata = Schema.readMetadata(session, storage.keyspace);
+          healthCheck = session.prepare("SELECT trace_id FROM " + Tables.TRACES + " limit 1");
         }
       }
     }
@@ -43,8 +48,16 @@ final class LazySession {
     return metadata;
   }
 
+  ResultSet healthCheck() {
+    get();
+    return session.execute(healthCheck.bind());
+  }
+
   void close() {
-    Session maybeSession = session;
-    if (maybeSession != null) maybeSession.close();
+    CqlSession maybeSession = session;
+    if (maybeSession != null) {
+      session.close();
+      session = null;
+    }
   }
 }

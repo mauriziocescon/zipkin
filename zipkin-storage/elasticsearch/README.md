@@ -8,7 +8,7 @@ features, but is tested against Elasticsearch 6-7.x.
 ## Multiple hosts
 Most users will supply a DNS name that's mapped to multiple A or AAAA
 records. For example, `http://elasticsearch:9200` will use normal host
-lookups to get the list of IP addresses, though you can alternatively supply 
+lookups to get the list of IP addresses, though you can alternatively supply
 a list of http base urls. In either case, all of the resolved IP addresses
 from all provided hosts will be iterated over round-robin, with requests made
 only to healthy addresses.
@@ -120,6 +120,17 @@ be written, nor analyzed.
 
 [Disabling search](../../README.md#disabling-search) disables indexing.
 
+### Composable Index Template
+Elasticsearch 7.8 introduces [composable templates](https://www.elastic.co/guide/en/elasticsearch/reference/current/index-templates.html) and
+deprecates [legacy/v1 templates](https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-templates-v1.html) used in version prior.
+Merging of multiple templates with matching index patterns is no longer allowed, and Elasticsearch will return error on PUT of the second template
+with matching index pattern and priority. Templates with matching index patterns are required to have different priorities, and Elasticsearch will
+only use the template with the highest priority. This also means that [secondary template](https://gist.github.com/adriancole/1af1259102e7a2da1b3c9103565165d7)
+is no longer achievable.
+
+By default, Zipkin will use legacy template during initialization, but you can opt to use composable template by
+providing `ES_TEMPLATE_PRIORITY` environment variable.
+
 ## Customizing the ingest pipeline
 
 You can setup an [ingest pipeline](https://www.elastic.co/guide/en/elasticsearch/reference/master/pipeline.html) to perform custom processing.
@@ -149,3 +160,9 @@ PUT _ingest/pipeline/zipkin
 Redundant requests to store autocomplete values are ignored for an hour
 to reduce load. This is implemented by
 [DelayLimiter](../../zipkin/src/main/java/zipkin2/internal/DelayLimiter.java)
+
+## Data retention
+Zipkin-server does not handle retention management of the trace data. Use the tools recommended by ElasticSearch to manage data retention, or your cluster
+will grow indefinitely!
+ * [Curator](https://www.elastic.co/guide/en/elasticsearch/client/curator/current/index.html)
+ * [Index Lifecycle Management](https://www.elastic.co/guide/en/elasticsearch/reference/7.3/index-lifecycle-management.html)

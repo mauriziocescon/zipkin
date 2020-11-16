@@ -11,17 +11,26 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
+
 /* eslint-disable no-shadow */
+
+import {
+  Box,
+  Grid,
+  Theme,
+  createStyles,
+  makeStyles,
+  useTheme,
+} from '@material-ui/core';
+import moment from 'moment';
 import React, { CSSProperties, useState, useCallback, useMemo } from 'react';
 import ReactSelect, { ValueType, ActionMeta } from 'react-select';
 import { AutoSizer } from 'react-virtualized';
-import { Box, Grid, useTheme } from '@material-ui/core';
-import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
-import moment from 'moment';
 
-import Dependencies from '../../types/Dependencies';
+import Edge from './Edge';
+import NodeDetailData from './NodeDetailData';
 import VizceralWrapper from './VizceralWrapper';
-import NodeDetailData, { Edge } from './NodeDetailData';
+import Dependencies from '../../models/Dependencies';
 
 // These filter functions use any type because they are passed directly to untyped JS code.
 const filterConnections = (object: any, value: any) => {
@@ -76,6 +85,8 @@ export const getNodesAndEdges = (dependencies: Dependencies) => {
   return { nodes, edges };
 };
 
+// IntelliJ may miss on "Unused property" analysis. Double-check here as we don't test CSS:
+// https://github.com/JedWatson/react-select/blob/cba15309c4d7523ab6a785c8d5c0c7ec1048e22f/packages/react-select/src/styles.js#L38-L61
 const reactSelectStyles = {
   control: (base: CSSProperties) => ({
     ...base,
@@ -227,12 +238,7 @@ const DependenciesGraph: React.FC<DependenciesGraphProps> = ({
   );
 
   return (
-    <Box
-      width="100%"
-      height="100%"
-      bgcolor="background.paper"
-      data-testid="dependencies-graph"
-    >
+    <Box width="100%" height="100%" data-testid="dependencies-graph">
       <Grid container className={classes.containerGrid}>
         <Grid
           item
@@ -245,7 +251,6 @@ const DependenciesGraph: React.FC<DependenciesGraphProps> = ({
                 width={width}
                 height={height}
                 position="relative"
-                bgcolor="background.paper"
                 className={classes.vizceralWrapper}
               >
                 <VizceralWrapper

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2019 The OpenZipkin Authors
+ * Copyright 2015-2020 The OpenZipkin Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -17,8 +17,8 @@ import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.WebClientBuilder;
 import com.linecorp.armeria.client.logging.LoggingClient;
+import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.logging.LogLevel;
-import java.io.IOException;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -33,18 +33,24 @@ import zipkin2.elasticsearch.ElasticsearchStorage;
 import zipkin2.elasticsearch.ElasticsearchStorage.Builder;
 
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static zipkin2.elasticsearch.integration.IgnoredDeprecationWarnings.IGNORE_THESE_WARNINGS;
 
 class ElasticsearchStorageExtension implements BeforeAllCallback, AfterAllCallback {
   static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchStorageExtension.class);
+
   static final int ELASTICSEARCH_PORT = 9200;
   final String image;
-  GenericContainer container;
+  final Integer priority;
+  GenericContainer<?> container;
 
-  ElasticsearchStorageExtension(String image) {
+  ElasticsearchStorageExtension(String image, Integer priority) {
     this.image = image;
+
+    // This is so that both legacy and composable templates can be tested with this class
+    this.priority = priority;
   }
 
-  @Override public void beforeAll(ExtensionContext context) throws IOException {
+  @Override public void beforeAll(ExtensionContext context) {
     if (context.getRequiredTestClass().getEnclosingClass() != null) {
       // Only run once in outermost scope.
       return;
@@ -54,11 +60,11 @@ class ElasticsearchStorageExtension implements BeforeAllCallback, AfterAllCallba
       try {
         LOGGER.info("Starting docker image " + image);
         container =
-          new GenericContainer(image)
+          new GenericContainer<>(image)
             .withExposedPorts(ELASTICSEARCH_PORT)
             .waitingFor(new HttpWaitStrategy().forPath("/"));
         container.start();
-        if (Boolean.valueOf(System.getenv("ES_DEBUG"))) {
+        if (Boolean.parseBoolean(System.getenv("ES_DEBUG"))) {
           container.followOutput(new Slf4jLogConsumer(LoggerFactory.getLogger(image)));
         }
         LOGGER.info("Starting docker image " + image);
@@ -71,7 +77,7 @@ class ElasticsearchStorageExtension implements BeforeAllCallback, AfterAllCallba
 
     try {
       tryToInitializeSession();
-    } catch (RuntimeException | IOException | Error e) {
+    } catch (RuntimeException | Error e) {
       if (container == null) throw e;
       LOGGER.warn("Couldn't connect to docker image " + image + ": " + e.getMessage(), e);
       container.stop();
@@ -92,7 +98,7 @@ class ElasticsearchStorageExtension implements BeforeAllCallback, AfterAllCallba
     }
   }
 
-  void tryToInitializeSession() throws IOException {
+  void tryToInitializeSession() {
     try (ElasticsearchStorage result = computeStorageBuilder().build()) {
       CheckResult check = result.check();
       assumeTrue(check.ok(), () -> "Could not connect to storage, skipping test: "
@@ -113,10 +119,28 @@ class ElasticsearchStorageExtension implements BeforeAllCallback, AfterAllCallba
         .requestLogLevel(LogLevel.INFO)
         .successfulResponseLogLevel(LogLevel.INFO).build(c));
     }
+    builder.decorator((delegate, ctx, req) -> {
+      final HttpResponse response = delegate.execute(ctx, req);
+      return HttpResponse.from(response.aggregate().thenApply(r -> {
+        // ES will return a 'warning' response header when using deprecated api, detect this and
+        // fail early so we can do something about it.
+        // Example usage: https://github.com/elastic/elasticsearch/blob/3049e55f093487bb582a7e49ad624961415ba31c/x-pack/plugin/security/src/internalClusterTest/java/org/elasticsearch/integration/IndexPrivilegeIntegTests.java#L559
+        final String warningHeader = r.headers().get("warning");
+        if (warningHeader != null) {
+          if (IGNORE_THESE_WARNINGS.stream().noneMatch(p -> p.matcher(warningHeader).find())) {
+            throw new IllegalArgumentException("Detected usage of deprecated API for request "
+              + req.toString() + ":\n" + warningHeader);
+          }
+        }
+        // Convert AggregatedHttpResponse back to HttpResponse.
+        return r.toHttpResponse();
+      }));
+    });
     WebClient client = builder.build();
     return ElasticsearchStorage.newBuilder(() -> client)
       .index("zipkin-test")
-      .flushOnWrites(true);
+      .flushOnWrites(true)
+      .templatePriority(priority);
   }
 
   String baseUrl() {

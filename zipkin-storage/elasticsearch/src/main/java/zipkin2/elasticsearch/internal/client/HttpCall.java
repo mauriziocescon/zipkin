@@ -31,9 +31,6 @@ import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.common.util.SafeCloseable;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufHolder;
-import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.EventExecutor;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -93,18 +90,15 @@ public final class HttpCall<V> extends Call.Base<V> {
     final AggregatedHttpRequest request;
 
     AggregatedRequestSupplier(AggregatedHttpRequest request) {
-      if (request.content() instanceof ByteBufHolder) {
-        // Unfortunately it's not possible to use pooled objects in requests and support clone()
-        // after sending the request.
-        ByteBuf buf = ((ByteBufHolder) request.content()).content();
-        try {
+      try (HttpData content = request.content()) {
+        if (!content.isPooled()) {
+          this.request = request;
+        } else {
+          // Unfortunately it's not possible to use pooled objects in requests and support clone()
+          // after sending the request.
           this.request = AggregatedHttpRequest.of(
-            request.headers(), HttpData.copyOf(buf), request.trailers());
-        } finally {
-          buf.release();
+            request.headers(), HttpData.wrap(content.array()), request.trailers());
         }
-      } else {
-        this.request = request;
       }
     }
 
@@ -150,7 +144,6 @@ public final class HttpCall<V> extends Call.Base<V> {
     this.httpClient = httpClient;
     this.name = name;
     this.request = request;
-
     this.bodyConverter = bodyConverter;
   }
 
@@ -273,15 +266,13 @@ public final class HttpCall<V> extends Call.Base<V> {
       };
     }
 
-    HttpData content = response.content();
-    try (InputStream stream = content.toInputStream();
+    try (HttpData content = response.content();
+         InputStream stream = content.toInputStream();
          JsonParser parser = JSON_FACTORY.createParser(stream)) {
 
       if (status.code() == 404) throw new FileNotFoundException(request.headers().path());
 
       return bodyConverter.convert(parser, content::toStringUtf8);
-    } finally {
-      ReferenceCountUtil.safeRelease(content);
     }
   }
 }

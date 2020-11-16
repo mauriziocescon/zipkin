@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2019 The OpenZipkin Authors
+ * Copyright 2015-2020 The OpenZipkin Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -13,27 +13,22 @@
  */
 package zipkin2.storage.cassandra.v1;
 
-import com.datastax.driver.core.ProtocolVersion;
-import com.google.common.cache.CacheBuilderSpec;
 import java.util.Collections;
-import java.util.List;
-import org.assertj.core.api.AbstractListAssert;
-import org.assertj.core.api.ObjectAssert;
 import org.junit.Test;
-import org.mockito.Mockito;
 import zipkin2.Call;
+import zipkin2.Endpoint;
 import zipkin2.Span;
+import zipkin2.internal.AggregateCall;
 import zipkin2.storage.cassandra.internal.call.ResultSetFutureCall;
 
+import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.util.introspection.PropertyOrFieldSupport.EXTRACTION;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
+import static org.assertj.core.api.Assertions.tuple;
 import static zipkin2.TestObjects.BACKEND;
 import static zipkin2.TestObjects.FRONTEND;
 import static zipkin2.TestObjects.TODAY;
+import static zipkin2.storage.cassandra.v1.InternalForTests.mockSession;
 
 public class CassandraSpanConsumerTest {
   CassandraSpanConsumer consumer = spanConsumer(CassandraStorage.newBuilder());
@@ -70,10 +65,9 @@ public class CassandraSpanConsumerTest {
   @Test public void indexesLocalServiceNameAndSpanName() {
     Span span = spanWithoutAnnotationsOrTags;
 
-    Call<Void> call = consumer.accept(singletonList(span));
-
-    assertEnclosedCalls(call)
-      .filteredOn(c -> c instanceof Indexer.IndexCall)
+    AggregateCall<?, Void> call = (AggregateCall<?, Void>) consumer.accept(singletonList(span));
+    assertThat(call.delegate())
+      .filteredOn(c -> c instanceof IndexTraceId)
       .extracting("input.partitionKey")
       .containsExactly("frontend", "frontend.get");
   }
@@ -94,21 +88,16 @@ public class CassandraSpanConsumerTest {
   @Test public void doesntIndexWhenMissingTimestamp() {
     Span span = spanWithoutAnnotationsOrTags.toBuilder().timestamp(null).build();
 
-    Call<Void> call = consumer.accept(singletonList(span));
-
-    assertEnclosedCalls(call)
-      .filteredOn(c -> c instanceof Indexer.IndexCall)
-      .extracting("input.partitionKey")
-      .isEmpty();
+    assertThat(consumer.accept(singletonList(span)))
+      .isInstanceOf(InsertTrace.class);
   }
 
   @Test public void indexKeysBasedOnLocalServiceNotRemote() {
     Span span = spanWithoutAnnotationsOrTags.toBuilder().remoteEndpoint(BACKEND).build();
 
-    Call<Void> call = consumer.accept(singletonList(span));
-
-    assertEnclosedCalls(call)
-      .filteredOn(c -> c instanceof Indexer.IndexCall)
+    AggregateCall<?, Void> call = (AggregateCall<?, Void>) consumer.accept(singletonList(span));
+    assertThat(call.delegate())
+      .filteredOn(c -> c instanceof IndexTraceId)
       .extracting("input.partitionKey")
       .containsExactly("frontend", "frontend.backend", "frontend.get");
   }
@@ -116,25 +105,61 @@ public class CassandraSpanConsumerTest {
   @Test public void indexesServiceNameWhenNoSpanName() {
     Span span = spanWithoutAnnotationsOrTags.toBuilder().name(null).build();
 
-    Call<Void> call = consumer.accept(singletonList(span));
-
-    assertEnclosedCalls(call)
-      .filteredOn(c -> c instanceof Indexer.IndexCall)
+    AggregateCall<?, Void> call = (AggregateCall<?, Void>) consumer.accept(singletonList(span));
+    assertThat(call.delegate())
+      .filteredOn(c -> c instanceof IndexTraceId)
       .extracting("input.partitionKey")
       .containsExactly(FRONTEND.serviceName());
   }
 
-  static AbstractListAssert<?, List<? extends Call<Void>>, Call<Void>, ObjectAssert<Call<Void>>>
-  assertEnclosedCalls(Call<Void> call) {
-    return
-      assertThat((List<? extends Call<Void>>) EXTRACTION.getValueOf("calls", call));
+  /**
+   * Most partition keys will not clash, as they are delimited differently. For example, spans index
+   * partition keys are delimited with dots, and annotations with colons.
+   *
+   * <p>This tests an edge case, where a delimiter exists in a service name.
+   */
+  @Test public void treatsIndexesSeparately() {
+    Span span1 = Span.newBuilder()
+      .traceId("1")
+      .id("2")
+      .name("foo")
+      .timestamp(TODAY * 1000L)
+      .localEndpoint(Endpoint.newBuilder().serviceName("app").build())
+      .remoteEndpoint(Endpoint.newBuilder().serviceName("foo").build())
+      .build();
+
+    Span span2 = Span.newBuilder()
+      .traceId("1")
+      .id("3")
+      .timestamp(TODAY * 1000L)
+      .localEndpoint(Endpoint.newBuilder().serviceName("app.foo").build())
+      .build();
+
+    AggregateCall<?, Void> call = (AggregateCall<?, Void>) consumer.accept(asList(span1, span2));
+    assertThat(call.delegate())
+      .filteredOn(c -> c instanceof IndexTraceId)
+      .extracting("factory.indexerFactory.statement", "input.partitionKey")
+      .containsExactly(
+        tuple(
+          "INSERT INTO service_name_index (ts, trace_id, service_name, bucket) VALUES (?,?,?,?)",
+          "app"),
+        tuple(
+          "INSERT INTO service_name_index (ts, trace_id, service_name, bucket) VALUES (?,?,?,?)",
+          "app.foo"),
+        tuple(
+          "INSERT INTO service_remote_service_name_index (ts, trace_id, service_remote_service_name) VALUES (?,?,?)",
+          "app.foo"),
+        tuple(
+          "INSERT INTO service_span_name_index (ts, trace_id, service_span_name) VALUES (?,?,?)",
+          "app.foo")
+      );
+
+    // intentionally redundantly accept span2 which double-checks deduplication of index calls
+    assertThat(consumer.accept(singletonList(span2)))
+      .isInstanceOf(InsertTrace.class);
   }
 
   static CassandraSpanConsumer spanConsumer(CassandraStorage.Builder builder) {
-    CassandraStorage storage =
-      spy(builder.sessionFactory(mock(SessionFactory.class, Mockito.RETURNS_MOCKS)).build());
-    doReturn(new Schema.Metadata(ProtocolVersion.V4, "", true, true, true))
-      .when(storage).metadata();
-    return new CassandraSpanConsumer(storage, CacheBuilderSpec.parse(""));
+    return new CassandraSpanConsumer(builder.sessionFactory(storage -> mockSession()).build());
   }
 }

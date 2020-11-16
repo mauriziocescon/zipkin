@@ -20,17 +20,19 @@
   <parent>
     <groupId>io.zipkin.zipkin2</groupId>
     <artifactId>zipkin-storage-parent</artifactId>
-    <version>2.21.4</version>
+    <version>2.22.0</version>
   </parent>
 
   <artifactId>zipkin-storage-cassandra</artifactId>
-  <name>Storage: Cassandra (Zipkin V2)</name>
+  <name>Storage: Cassandra</name>
 
   <properties>
     <main.basedir>${project.basedir}/../..</main.basedir>
 
-    <!-- error-prone doesn't like generated code and it wants you to depend on guava! -->
-    <errorprone.args>-XepDisableWarningsInGeneratedCode -Xep:AutoValueImmutableFields:OFF -Xep:ExtendsAutoValue:OFF -Xep:AutoValueSubclassLeaked:OFF</errorprone.args>
+    <!-- CheckReturnValue:OFF as it is used on some types that do not require it
+         https://groups.google.com/a/lists.datastax.com/g/java-driver-user/c/YbXjSoNV6Ns/m/U9w-HccWBgAJ -->
+    <!-- AutoValueImmutableFields:OFF because error-prone wants InsertSpan to depend on guava! -->
+    <errorprone.args>-Xep:CheckReturnValue:OFF -Xep:AutoValueImmutableFields:OFF</errorprone.args>
   </properties>
 
   <dependencies>
@@ -45,15 +47,22 @@
     </dependency>
 
     <dependency>
-      <groupId>com.datastax.cassandra</groupId>
-      <artifactId>cassandra-driver-core</artifactId>
-      <version>${cassandra-driver-core.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.datastax.cassandra</groupId>
-      <artifactId>cassandra-driver-mapping</artifactId>
-      <version>${cassandra-driver-core.version}</version>
+      <groupId>com.datastax.oss</groupId>
+      <artifactId>java-driver-core</artifactId>
+      <version>${java-driver.version}</version>
+      <!-- Exclude unused graph and geo dependencies -->
+      <exclusions>
+        <exclusion>
+          <groupId>com.esri.geometry</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.tinkerpop</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <!-- We retain reactivestreams even though we don't use it because
+             Mockito dies trying to mock CqlSession without it. -->
+      </exclusions>
     </dependency>
 
     <!-- To test nuance of load balancing behavior -->
