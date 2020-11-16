@@ -46,11 +46,11 @@ import TraceSummaryTable from './TraceSummaryTable';
 import { Lookback, fixedLookbackMap, millisecondsToValue } from './lookback';
 import { setAlert } from '../App/slice';
 import { useUiConfig } from '../UiConfig';
-import ExplainBox from '../common/ExplainBox';
+import ExplainBox from '../Common/ExplainBox';
 import TraceSummary from '../../models/TraceSummary';
 import { clearSearch, searchTraces } from '../../slices/tracesSlice';
 import { RootState } from '../../store';
-import { LoadingIndicator } from '../common/LoadingIndicator';
+import { LoadingIndicator } from '../Common/LoadingIndicator';
 
 interface DiscoverPageContentProps {
   autocompleteKeys: string[];

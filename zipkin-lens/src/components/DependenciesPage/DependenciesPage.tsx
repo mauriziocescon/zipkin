@@ -33,13 +33,13 @@ import { withRouter, RouteComponentProps } from 'react-router-dom';
 
 import DependenciesGraph from './DependenciesGraph';
 import { clearAlert, setAlert } from '../App/slice';
-import ExplainBox from '../common/ExplainBox';
+import ExplainBox from '../Common/ExplainBox';
 import {
   clearDependencies,
   loadDependencies,
 } from '../../slices/dependenciesSlice';
 import { RootState } from '../../store';
-import { LoadingIndicator } from '../common/LoadingIndicator';
+import { LoadingIndicator } from '../Common/LoadingIndicator';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({

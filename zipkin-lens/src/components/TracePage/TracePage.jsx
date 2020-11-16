@@ -19,7 +19,7 @@ import { withRouter } from 'react-router-dom';
 
 import TraceSummary from './TraceSummary';
 import { setAlert } from '../App/slice';
-import { LoadingIndicator } from '../common/LoadingIndicator';
+import { LoadingIndicator } from '../Common/LoadingIndicator';
 import { loadTrace } from '../../slices/tracesSlice';
 
 const propTypes = {
