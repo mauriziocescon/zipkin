@@ -100,7 +100,7 @@ const TraceSummaryHeader = React.memo(({ traceSummary, rootSpanIndex }) => {
   /* eslint-disable */
   const prettifyUrl =
     traceSummary
-      ? ` http://santa-fe.cc.cec.eu.int:8411/prettify/${traceSummary.traceId}`
+      ? `https://zipkin.tech.ec.europa.eu/prettify/${traceSummary.traceId}`
       : undefined;
   /* eslint-enable */
 
