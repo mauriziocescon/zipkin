@@ -1,52 +1,46 @@
 /*
- * Copyright 2015-2019 The OpenZipkin Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- * in compliance with the License. You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
- * or implied. See the License for the specific language governing permissions and limitations under
- * the License.
+ * Copyright The OpenZipkin Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package zipkin2;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.io.StreamCorruptedException;
-import java.nio.charset.Charset;
 import java.util.Locale;
 import zipkin2.codec.DependencyLinkBytesDecoder;
 import zipkin2.codec.DependencyLinkBytesEncoder;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+/** A dependency link is an edge between two services. */
 //@Immutable
 public final class DependencyLink implements Serializable { // for Spark and Flink jobs
-  static final Charset UTF_8 = Charset.forName("UTF-8");
-
   private static final long serialVersionUID = 0L;
 
   public static Builder newBuilder() {
     return new Builder();
   }
 
-  /** parent service name (caller) */
+  /** The parent service name (caller), {@link Span#localServiceName()} if instrumented. */
   public String parent() {
     return parent;
   }
 
-  /** child service name (callee) */
+  /** The chold service name (callee), {@link Span#localServiceName()} if instrumented. */
   public String child() {
     return child;
   }
 
-  /** total traced calls made from {@link #parent} to {@link #child} */
+  /** Total traced calls made from {@link #parent} to {@link #child} */
   public long callCount() {
     return callCount;
   }
 
-  /** How many {@link #callCount calls} are known to be errors */
+  /**
+   * {@linkplain #callCount Count of calls} known to be errors (having one {@linkplain Span#tags()
+   * tag} named "error").
+   */
   public long errorCount() {
     return errorCount;
   }
@@ -69,23 +63,27 @@ public final class DependencyLink implements Serializable { // for Spark and Fli
       this.errorCount = source.errorCount;
     }
 
+    /** @see #parent() */
     public Builder parent(String parent) {
       if (parent == null) throw new NullPointerException("parent == null");
       this.parent = parent.toLowerCase(Locale.ROOT);
       return this;
     }
 
+    /** @see #child() */
     public Builder child(String child) {
       if (child == null) throw new NullPointerException("child == null");
       this.child = child.toLowerCase(Locale.ROOT);
       return this;
     }
 
+    /** @see #callCount() */
     public Builder callCount(long callCount) {
       this.callCount = callCount;
       return this;
     }
 
+    /** @see #errorCount() */
     public Builder errorCount(long errorCount) {
       this.errorCount = errorCount;
       return this;
@@ -95,7 +93,7 @@ public final class DependencyLink implements Serializable { // for Spark and Fli
       String missing = "";
       if (parent == null) missing += " parent";
       if (child == null) missing += " child";
-      if (!"".equals(missing)) throw new IllegalStateException("Missing :" + missing);
+      if (!missing.isEmpty()) throw new IllegalStateException("Missing :" + missing);
       return new DependencyLink(this);
     }
   }
@@ -140,7 +138,7 @@ public final class DependencyLink implements Serializable { // for Spark and Fli
   }
 
   // This is an immutable object, and our encoder is faster than java's: use a serialization proxy.
-  final Object writeReplace() throws ObjectStreamException {
+  Object writeReplace() throws ObjectStreamException {
     return new SerializedForm(DependencyLinkBytesEncoder.JSON_V1.encode(this));
   }
 

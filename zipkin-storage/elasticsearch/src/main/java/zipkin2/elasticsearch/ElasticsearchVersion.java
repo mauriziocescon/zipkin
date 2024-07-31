@@ -1,51 +1,48 @@
 /*
- * Copyright 2015-2020 The OpenZipkin Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- * in compliance with the License. You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
- * or implied. See the License for the specific language governing permissions and limitations under
- * the License.
+ * Copyright The OpenZipkin Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package zipkin2.elasticsearch;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.linecorp.armeria.common.AggregatedHttpRequest;
-import com.linecorp.armeria.common.HttpMethod;
-import java.io.IOException;
-import java.util.function.Supplier;
-import zipkin2.elasticsearch.internal.client.HttpCall;
+import java.util.Objects;
 
-import static zipkin2.elasticsearch.internal.JsonReaders.enterPath;
+/** Helps avoid problems comparing versions by number. Ex 7.10 should be > 7.9 */
+public final class ElasticsearchVersion extends BaseVersion implements Comparable<ElasticsearchVersion> {
+  public static final ElasticsearchVersion V5_0 = new ElasticsearchVersion(5, 0);
+  public static final ElasticsearchVersion V6_0 = new ElasticsearchVersion(6, 0);
+  public static final ElasticsearchVersion V6_7 = new ElasticsearchVersion(6, 7);
+  public static final ElasticsearchVersion V7_0 = new ElasticsearchVersion(7, 0);
+  public static final ElasticsearchVersion V7_8 = new ElasticsearchVersion(7, 8);
+  public static final ElasticsearchVersion V9_0 = new ElasticsearchVersion(9, 0);
 
-enum ElasticsearchVersion implements HttpCall.BodyConverter<Float> {
-  INSTANCE;
-
-  float get(HttpCall.Factory callFactory) throws IOException {
-    AggregatedHttpRequest getNode = AggregatedHttpRequest.of(HttpMethod.GET, "/");
-    Float version = callFactory.newCall(getNode, this, "get-node").execute();
-    if (version == null) {
-      throw new IllegalArgumentException("No content reading Elasticsearch version");
-    }
-    return version;
+  ElasticsearchVersion(int major, int minor) {
+    super(major, minor);
   }
 
-  @Override public Float convert(JsonParser parser, Supplier<String> contentString) {
-    String version = null;
-    try {
-      if (enterPath(parser, "version", "number") != null) version = parser.getText();
-    } catch (RuntimeException | IOException possiblyParseException) {
-      // EmptyCatch ignored
-    }
-    if (version == null) {
-      throw new IllegalArgumentException(
-        ".version.number not found in response: " + contentString.get());
-    }
-    return Float.valueOf(version.substring(0, 3));
+  @Override public boolean supportsTypes() {
+    return compareTo(V7_0) < 0;
   }
+
+  @Override public int compareTo(ElasticsearchVersion other) {
+    if (major < other.major) return -1;
+    if (major > other.major) return 1;
+    return Integer.compare(minor, other.minor);
+  }
+
+  @Override public boolean equals(Object o) {
+    if (o == this) return true;
+    if (!(o instanceof ElasticsearchVersion)) return false;
+    ElasticsearchVersion that = (ElasticsearchVersion) o;
+    return this.major == that.major && this.minor == that.minor;
+  }
+
+  @Override public int hashCode() {
+    return Objects.hash(major, minor);
+  }
+
+  @Override public String toString() {
+    return major + "." + minor;
+  }
+
+
 }
-

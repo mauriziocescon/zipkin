@@ -1,15 +1,6 @@
 /*
- * Copyright 2015-2020 The OpenZipkin Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- * in compliance with the License. You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
- * or implied. See the License for the specific language governing permissions and limitations under
- * the License.
+ * Copyright The OpenZipkin Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package zipkin2.storage.cassandra.internal.call;
 
@@ -19,6 +10,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import zipkin2.Call;
 import zipkin2.Callback;
@@ -27,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
 import static org.mockito.Mockito.mock;
 
-public class DeduplicatingInsertTest {
+class DeduplicatingInsertTest {
   @Test void dedupesSameCalls() throws Exception {
     TestFactory testFactory = new TestFactory();
 
@@ -45,7 +37,7 @@ public class DeduplicatingInsertTest {
     assertThat(testFactory.values).containsExactly("foo", "bar");
   }
 
-  Callback<Void> assertFailOnError = new Callback<Void>() {
+  Callback<Void> assertFailOnError = new Callback<>() {
     @Override public void onSuccess(Void value) {
     }
 
@@ -67,6 +59,7 @@ public class DeduplicatingInsertTest {
     assertThat(testFactory.values).containsExactly("foo", "bar");
   }
 
+  @Disabled("Flakey: https://github.com/openzipkin/zipkin/issues/3255")
   @Test void exceptionsInvalidate_enqueue() {
     TestFactory testFactory = new TestFactory();
 

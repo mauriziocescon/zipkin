@@ -1,15 +1,6 @@
 /*
- * Copyright 2015-2019 The OpenZipkin Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- * in compliance with the License. You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
- * or implied. See the License for the specific language governing permissions and limitations under
- * the License.
+ * Copyright The OpenZipkin Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package zipkin2.collector.scribe;
 
@@ -77,8 +68,8 @@ public final class ScribeCollector extends CollectorComponent {
   final NettyScribeServer server;
 
   ScribeCollector(Builder builder) {
-    server = new NettyScribeServer(builder.port, new ScribeSpanConsumer(
-      builder.delegate.build(), builder.metrics, builder.category));
+    server = new NettyScribeServer(builder.port,
+      new ScribeSpanConsumer(builder.delegate.build(), builder.metrics, builder.category));
   }
 
   /** Will throw an exception if the {@link Builder#port(int) port} is already in use. */
@@ -94,8 +85,13 @@ public final class ScribeCollector extends CollectorComponent {
     return CheckResult.OK;
   }
 
+  /** Returns zero until {@link #start()} was called. */
+  public int port() {
+    return server.port();
+  }
+
   @Override public final String toString() {
-    return "ScribeCollector{port=" + server.port + ", category=" + server.scribe.category + "}";
+    return "ScribeCollector{port=" + port() + ", category=" + server.scribe.category + "}";
   }
 
   @Override public void close() {

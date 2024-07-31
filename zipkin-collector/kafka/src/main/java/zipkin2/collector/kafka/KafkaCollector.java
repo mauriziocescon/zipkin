@@ -1,15 +1,6 @@
 /*
- * Copyright 2015-2019 The OpenZipkin Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- * in compliance with the License. You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
- * or implied. See the License for the specific language governing permissions and limitations under
- * the License.
+ * Copyright The OpenZipkin Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package zipkin2.collector.kafka;
 
@@ -61,7 +52,7 @@ public final class KafkaCollector extends CollectorComponent {
   /** Configuration including defaults needed to consume spans from a Kafka topic. */
   public static final class Builder extends CollectorComponent.Builder {
     final Properties properties = new Properties();
-    Collector.Builder delegate = Collector.newBuilder(KafkaCollector.class);
+    final Collector.Builder delegate = Collector.newBuilder(KafkaCollector.class);
     CollectorMetrics metrics = CollectorMetrics.NOOP_METRICS;
     String topic = "zipkin";
     int streams = 1;
@@ -163,7 +154,7 @@ public final class KafkaCollector extends CollectorComponent {
 
   @Override
   public KafkaCollector start() {
-    kafkaWorkers.get();
+    kafkaWorkers.start();
     return this;
   }
 
@@ -217,7 +208,7 @@ public final class KafkaCollector extends CollectorComponent {
       this.builder = builder;
     }
 
-    ExecutorService get() {
+    void start() {
       if (pool == null) {
         synchronized (this) {
           if (pool == null) {
@@ -225,7 +216,6 @@ public final class KafkaCollector extends CollectorComponent {
           }
         }
       }
-      return pool;
     }
 
     void close() {
@@ -247,13 +237,11 @@ public final class KafkaCollector extends CollectorComponent {
 
     ExecutorService compute() {
       ExecutorService pool =
-          streams == 1
-              ? Executors.newSingleThreadExecutor()
-              : Executors.newFixedThreadPool(streams);
+        streams == 1 ? Executors.newSingleThreadExecutor() : Executors.newFixedThreadPool(streams);
 
       for (int i = 0; i < streams; i++) {
         // TODO: bad idea to lazy reference properties from a mutable builder
-        // copy them here and then pass this to the KafkaCollectorWorker ctor instead
+        // copy them here and then pass this to the KafkaCollectorWorker constructor instead
         KafkaCollectorWorker worker = new KafkaCollectorWorker(builder);
         workers.add(worker);
         pool.execute(guardFailures(worker));
@@ -269,9 +257,10 @@ public final class KafkaCollector extends CollectorComponent {
         } catch (InterruptException e) {
           // Interrupts are normal on shutdown, intentionally swallow
         } catch (KafkaException e) {
-          if (e.getCause() instanceof ConfigException) e = (KafkaException) e.getCause();
-          LOG.error("Kafka worker exited with exception", e);
-          failure.set(CheckResult.failed(e));
+          KafkaException kafkaException = e;
+          if (kafkaException.getCause() instanceof ConfigException) kafkaException = (KafkaException) kafkaException.getCause();
+          LOG.error("Kafka worker exited with exception", kafkaException);
+          failure.set(CheckResult.failed(kafkaException));
         } catch (RuntimeException e) {
           LOG.error("Kafka worker exited with exception", e);
           failure.set(CheckResult.failed(e));

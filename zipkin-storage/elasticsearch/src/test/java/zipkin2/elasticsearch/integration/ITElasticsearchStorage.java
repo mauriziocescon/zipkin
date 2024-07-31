@@ -1,15 +1,6 @@
 /*
- * Copyright 2015-2020 The OpenZipkin Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- * in compliance with the License. You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
- * or implied. See the License for the specific language governing permissions and limitations under
- * the License.
+ * Copyright The OpenZipkin Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package zipkin2.elasticsearch.integration;
 
@@ -31,19 +22,19 @@ import zipkin2.elasticsearch.ElasticsearchStorage;
 import zipkin2.elasticsearch.InternalForTests;
 import zipkin2.storage.StorageComponent;
 
-import static zipkin2.elasticsearch.integration.ElasticsearchStorageExtension.index;
+import static zipkin2.elasticsearch.integration.ElasticsearchExtension.index;
 import static zipkin2.storage.ITDependencies.aggregateLinks;
 
 abstract class ITElasticsearchStorage {
 
   static final Logger LOGGER = LoggerFactory.getLogger(ITElasticsearchStorage.class);
 
-  abstract ElasticsearchStorageExtension backend();
+  abstract ElasticsearchBaseExtension elasticsearch();
 
   @Nested
   class ITTraces extends zipkin2.storage.ITTraces<ElasticsearchStorage> {
     @Override protected StorageComponent.Builder newStorageBuilder(TestInfo testInfo) {
-      return backend().computeStorageBuilder().index(index(testInfo));
+      return elasticsearch().computeStorageBuilder().index(index(testInfo));
     }
 
     @Override public void clear() throws IOException {
@@ -54,7 +45,7 @@ abstract class ITElasticsearchStorage {
   @Nested
   class ITSpanStore extends zipkin2.storage.ITSpanStore<ElasticsearchStorage> {
     @Override protected StorageComponent.Builder newStorageBuilder(TestInfo testInfo) {
-      return backend().computeStorageBuilder().index(index(testInfo));
+      return elasticsearch().computeStorageBuilder().index(index(testInfo));
     }
 
     @Override public void clear() throws IOException {
@@ -65,7 +56,7 @@ abstract class ITElasticsearchStorage {
   @Nested
   class ITSpanStoreHeavy extends zipkin2.storage.ITSpanStoreHeavy<ElasticsearchStorage> {
     @Override protected StorageComponent.Builder newStorageBuilder(TestInfo testInfo) {
-      return backend().computeStorageBuilder().index(index(testInfo));
+      return elasticsearch().computeStorageBuilder().index(index(testInfo));
     }
 
     @Override public void clear() throws IOException {
@@ -76,7 +67,7 @@ abstract class ITElasticsearchStorage {
   @Nested
   class ITSearchEnabledFalse extends zipkin2.storage.ITSearchEnabledFalse<ElasticsearchStorage> {
     @Override protected StorageComponent.Builder newStorageBuilder(TestInfo testInfo) {
-      return backend().computeStorageBuilder().index(index(testInfo));
+      return elasticsearch().computeStorageBuilder().index(index(testInfo));
     }
 
     @Override public void clear() throws IOException {
@@ -87,7 +78,7 @@ abstract class ITElasticsearchStorage {
   @Nested
   class ITServiceAndSpanNames extends zipkin2.storage.ITServiceAndSpanNames<ElasticsearchStorage> {
     @Override protected StorageComponent.Builder newStorageBuilder(TestInfo testInfo) {
-      return backend().computeStorageBuilder().index(index(testInfo));
+      return elasticsearch().computeStorageBuilder().index(index(testInfo));
     }
 
     @Override public void clear() throws IOException {
@@ -98,7 +89,7 @@ abstract class ITElasticsearchStorage {
   @Nested
   class ITAutocompleteTags extends zipkin2.storage.ITAutocompleteTags<ElasticsearchStorage> {
     @Override protected StorageComponent.Builder newStorageBuilder(TestInfo testInfo) {
-      return backend().computeStorageBuilder().index(index(testInfo));
+      return elasticsearch().computeStorageBuilder().index(index(testInfo));
     }
 
     @Override public void clear() throws IOException {
@@ -109,7 +100,7 @@ abstract class ITElasticsearchStorage {
   @Nested
   class ITStrictTraceIdFalse extends zipkin2.storage.ITStrictTraceIdFalse<ElasticsearchStorage> {
     @Override protected StorageComponent.Builder newStorageBuilder(TestInfo testInfo) {
-      return backend().computeStorageBuilder().index(index(testInfo));
+      return elasticsearch().computeStorageBuilder().index(index(testInfo));
     }
 
     @Override public void clear() throws IOException {
@@ -120,7 +111,7 @@ abstract class ITElasticsearchStorage {
   @Nested
   class ITDependencies extends zipkin2.storage.ITDependencies<ElasticsearchStorage> {
     @Override protected StorageComponent.Builder newStorageBuilder(TestInfo testInfo) {
-      return backend().computeStorageBuilder().index(index(testInfo));
+      return elasticsearch().computeStorageBuilder().index(index(testInfo));
     }
 
     @Override protected void processDependencies(List<Span> spans) {
@@ -135,7 +126,7 @@ abstract class ITElasticsearchStorage {
   @Nested
   class ITDependenciesHeavy extends zipkin2.storage.ITDependenciesHeavy<ElasticsearchStorage> {
     @Override protected StorageComponent.Builder newStorageBuilder(TestInfo testInfo) {
-      return backend().computeStorageBuilder().index(index(testInfo));
+      return elasticsearch().computeStorageBuilder().index(index(testInfo));
     }
 
     @Override protected void processDependencies(List<Span> spans) {
@@ -157,18 +148,20 @@ abstract class ITElasticsearchStorage {
         storage, links, midnight));
   }
 
-  @Test void testUsageOfDeprecatedFeatures() {
-    WebClient webClient = WebClient.builder(backend().baseUrl()).factory(ClientFactory.builder()
+  @Test void usageOfDeprecatedFeatures() {
+    WebClient webClient = WebClient.builder(elasticsearch().baseUrl()).factory(ClientFactory.builder()
       .useHttp2Preface(false).build()).build();
     final AggregatedHttpResponse response =
       webClient.execute(HttpRequest.of(RequestHeaders.of(HttpMethod.GET,
         "/_migration/deprecations"))).aggregate().join();
-    if (!response.contentAscii().isEmpty()) {
+    String responseBody = response.contentAscii();
+    if (!responseBody.equals("""
+      {"cluster_settings":[],"node_settings":[],"index_settings":{},"ml_settings":[],"ccr_auto_followed_system_indices":[]}""")) {
       LOGGER.warn("The ElasticSearch instance used during IT's is using deprecated features or "
         + "configuration. This is likely nothing to be really worried about (for example 'xpack.monitoring.enabled' "
         + "setting), but nevertheless it should be looked at to see if our docker image used during "
         + "integration tests needs updating for the next version of ElasticSearch. "
-        + "See https://www.elastic.co/guide/en/elasticsearch/reference/current/migration-api-deprecation.html"
+        + "See https://www.elastic.co/guide/en/elasticsearch/reference/current/migration-api-deprecation.html "
         + "for more information. This is the deprecation warning we received:\n\n"
         + response.contentAscii());
     }

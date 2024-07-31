@@ -1,15 +1,6 @@
 /*
- * Copyright 2015-2019 The OpenZipkin Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- * in compliance with the License. You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
- * or implied. See the License for the specific language governing permissions and limitations under
- * the License.
+ * Copyright The OpenZipkin Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package zipkin2.server.internal.elasticsearch;
 
@@ -41,6 +32,8 @@ final class InitialEndpointSupplier implements Supplier<EndpointGroup> {
   @Override public EndpointGroup get() {
     List<EndpointGroup> endpointGroups = new ArrayList<>();
     for (String hostText : hosts.split(",", 100)) {
+      if ("".equals(hostText)) continue; // possibly extra comma
+
       URI url;
       if (hostText.startsWith("http://") || hostText.startsWith("https://")) {
         url = URI.create(hostText);
@@ -51,6 +44,11 @@ final class InitialEndpointSupplier implements Supplier<EndpointGroup> {
       }
 
       String host = url.getHost();
+      if (host == null) {
+        LOGGER.warn("Skipping invalid ES host {}", url);
+        continue;
+      }
+
       int port = getPort(url);
 
       if (port == 9300) {
@@ -66,6 +64,10 @@ final class InitialEndpointSupplier implements Supplier<EndpointGroup> {
         // with single IPs freely, they'll all get used.
         endpointGroups.add(DnsAddressEndpointGroup.builder(host).port(port).build());
       }
+    }
+
+    if (endpointGroups.isEmpty()) {
+      throw new IllegalArgumentException("No valid endpoints found in ES hosts: " + hosts);
     }
 
     return EndpointGroup.of(endpointGroups);
