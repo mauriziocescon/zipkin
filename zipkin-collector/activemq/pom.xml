@@ -11,7 +11,7 @@
   <parent>
     <groupId>io.zipkin.zipkin2</groupId>
     <artifactId>zipkin-collector-parent</artifactId>
-    <version>3.4.1-SNAPSHOT</version>
+    <version>3.4.5-SNAPSHOT</version>
   </parent>
 
   <artifactId>zipkin-collector-activemq</artifactId>
@@ -20,7 +20,7 @@
 
   <properties>
     <main.basedir>${project.basedir}/../..</main.basedir>
-    <activemq.version>5.18.4</activemq.version>
+    <activemq.version>5.18.5</activemq.version>
   </properties>
 
   <dependencies>

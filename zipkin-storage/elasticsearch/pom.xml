@@ -11,7 +11,7 @@
   <parent>
     <groupId>io.zipkin.zipkin2</groupId>
     <artifactId>zipkin-storage-parent</artifactId>
-    <version>3.4.1-SNAPSHOT</version>
+    <version>3.4.5-SNAPSHOT</version>
   </parent>
 
   <artifactId>zipkin-storage-elasticsearch</artifactId>
@@ -54,6 +54,13 @@
       <groupId>com.linecorp.armeria</groupId>
       <artifactId>armeria-junit5</artifactId>
       <version>${armeria.version}</version>
+      <scope>test</scope>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>${junit-jupiter.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
