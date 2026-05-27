@@ -59,6 +59,16 @@ zipkin:
       enabled: ${COLLECTOR_SCRIBE_ENABLED:${SCRIBE_ENABLED:false}}
       category: ${SCRIBE_CATEGORY:zipkin}
       port: ${COLLECTOR_PORT:9410}
+    pulsar:
+      enabled: ${COLLECTOR_PULSAR_ENABLED:true}
+      # The service URL for the Pulsar client ex. pulsar://my-broker:6650.
+      service-url: ${PULSAR_SERVICE_URL:}
+      # Queue zipkin spans will be consumed from.
+      topic: ${PULSAR_TOPIC:zipkin}
+      # Specify the subscription name for this consumer.
+      subscription-name: ${PULSAR_SUBSCRIPTION_NAME:zipkin}
+      # Number of concurrent span consumers.
+      concurrency: ${PULSAR_CONCURRENCY:1}
 
   discovery:
     eureka:
@@ -96,7 +106,6 @@ zipkin:
         - org.springframework.boot.actuate.autoconfigure.context.properties.ConfigurationPropertiesReportEndpointAutoConfiguration
         - org.springframework.boot.actuate.autoconfigure.endpoint.EndpointAutoConfiguration
         - org.springframework.boot.actuate.autoconfigure.env.EnvironmentEndpointAutoConfiguration
-        - org.springframework.boot.actuate.autoconfigure.management.HeapDumpWebEndpointAutoConfiguration
         - org.springframework.boot.actuate.autoconfigure.logging.LoggersEndpointAutoConfiguration
         - org.springframework.boot.actuate.autoconfigure.management.ThreadDumpEndpointAutoConfiguration
 
@@ -222,6 +231,7 @@ spring:
     # NOTE: These exclusions can drift between Spring Boot minor versions. Audit accordingly.
     # Ex. curl -s localhost:9411/actuator/beans|jq '.contexts.application.beans|keys_unsorted[]'|sort
     exclude:
+      - org.springframework.boot.actuate.autoconfigure.management.HeapDumpWebEndpointAutoConfiguration
       # JMX is disabled
       - org.springframework.boot.actuate.autoconfigure.endpoint.jmx.JmxEndpointAutoConfiguration
       # /health and /actuator/health served directly by Armeria

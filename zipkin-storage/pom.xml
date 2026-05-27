@@ -11,7 +11,7 @@
   <parent>
     <groupId>io.zipkin</groupId>
     <artifactId>zipkin-parent</artifactId>
-    <version>3.4.5-SNAPSHOT</version>
+    <version>3.6.2-SNAPSHOT</version>
   </parent>
 
   <groupId>io.zipkin.zipkin2</groupId>
@@ -63,7 +63,7 @@
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
       <version>${testcontainers.version}</version>
       <scope>test</scope>
     </dependency>

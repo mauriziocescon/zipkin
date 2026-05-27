@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-24.04  # newest available distribution, aka noble
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Prevent use of implicit GitHub Actions read-only GITHUB_TOKEN
           # because javadoc_to_gh_pages pushes commits to the gh-pages branch.
@@ -27,18 +27,18 @@ jobs:
           # See https://github.com/actions/checkout/issues/578
           fetch-depth: 0
       - name: Setup java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'  # zulu as it supports a wide version range
-          java-version: '17'  # earliest LTS supported by Spring Boot 3
+          java-version: '21'  # Earliest LTS that can compile Zipkin
       - name: Cache local Maven repository
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-jdk-17-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-jdk-17-maven-
+          key: ${{ runner.os }}-jdk-21-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-jdk-21-maven-
       - name: Cache NPM Packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           # yamllint disable-line rule:line-length
@@ -62,8 +62,8 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           # SONATYPE_USER=<sonatype account token>
           # * deploys snapshots and releases to Sonatype
-          # * needs access to io.zipkin via OSSRH-16669
-          # * generate via https://oss.sonatype.org/#profile;User%20Token
+          # * needs access to io.zipkin namespace
+          # * generate token at https://central.sonatype.com
           # * referenced in .settings.xml
           SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
           # SONATYPE_PASSWORD=<password to sonatype account token>

@@ -81,7 +81,7 @@ public class ZipkinAnnotations extends TableImpl<Record> {
      * The column <code>zipkin.zipkin_annotations.a_value</code>.
      * BinaryAnnotation.value(), which must be smaller than 64KB
      */
-    public final TableField<Record, byte[]> A_VALUE = createField(DSL.name("a_value"), SQLDataType.BLOB, this, "BinaryAnnotation.value(), which must be smaller than 64KB");
+    public final TableField<Record, byte[]> A_VALUE = createField(DSL.name("a_value"), SQLDataType.BLOB(65535), this, "BinaryAnnotation.value(), which must be smaller than 64KB");
 
     /**
      * The column <code>zipkin.zipkin_annotations.a_type</code>.
@@ -155,12 +155,12 @@ public class ZipkinAnnotations extends TableImpl<Record> {
 
     @Override
     public List<Index> getIndexes() {
-        return Arrays.asList(Indexes.ZIPKIN_ANNOTATIONS_A_KEY, Indexes.ZIPKIN_ANNOTATIONS_A_KEY_2, Indexes.ZIPKIN_ANNOTATIONS_A_KEY_3, Indexes.ZIPKIN_ANNOTATIONS_A_KEY_4, Indexes.ZIPKIN_ANNOTATIONS_A_TYPE, Indexes.ZIPKIN_ANNOTATIONS_A_TYPE_2, Indexes.ZIPKIN_ANNOTATIONS_A_TYPE_3, Indexes.ZIPKIN_ANNOTATIONS_A_TYPE_4, Indexes.ZIPKIN_ANNOTATIONS_ENDPOINT_SERVICE_NAME, Indexes.ZIPKIN_ANNOTATIONS_ENDPOINT_SERVICE_NAME_2, Indexes.ZIPKIN_ANNOTATIONS_ENDPOINT_SERVICE_NAME_3, Indexes.ZIPKIN_ANNOTATIONS_ENDPOINT_SERVICE_NAME_4, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_2, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_3, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_4, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_11, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_12, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_2, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_3, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_5, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_6, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_8, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_9);
+        return Arrays.asList(Indexes.ZIPKIN_ANNOTATIONS_A_KEY, Indexes.ZIPKIN_ANNOTATIONS_A_TYPE, Indexes.ZIPKIN_ANNOTATIONS_ENDPOINT_SERVICE_NAME, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_2, Indexes.ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_3);
     }
 
     @Override
     public List<UniqueKey<Record>> getUniqueKeys() {
-        return Arrays.asList(Keys.KEY_ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH, Keys.KEY_ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_10, Keys.KEY_ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_4, Keys.KEY_ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH_7);
+        return Arrays.asList(Keys.KEY_ZIPKIN_ANNOTATIONS_TRACE_ID_HIGH);
     }
 
     @Override

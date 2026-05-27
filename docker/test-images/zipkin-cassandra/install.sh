@@ -34,6 +34,14 @@ cat > pom.xml <<-'EOF'
           <artifactId>*</artifactId>
         </exclusion>
         <exclusion>
+          <groupId>com.github.jbellis</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.github.jnr</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
           <groupId>org.slf4j</groupId>
           <artifactId>*</artifactId>
         </exclusion>
@@ -47,7 +55,25 @@ cat > pom.xml <<-'EOF'
     <dependency>
       <groupId>net.java.dev.jna</groupId>
       <artifactId>jna</artifactId>
-      <version>5.15.0</version>
+      <version>5.18.1</version>
+    </dependency>
+    <!-- JFFI 1.2.16 from cassandra-all crashes on aarch64/alpine -->
+    <dependency>
+      <groupId>com.github.jnr</groupId>
+      <artifactId>jffi</artifactId>
+      <version>1.3.14</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.jnr</groupId>
+      <artifactId>jffi</artifactId>
+      <version>1.3.14</version>
+      <classifier>native</classifier>
+    </dependency>
+    <!-- Use latest to work with JRE 21 per CASSANDRA-18329 -->
+    <dependency>
+      <groupId>com.github.jbellis</groupId>
+      <artifactId>jamm</artifactId>
+      <version>0.4.0</version>
     </dependency>
     <!-- log4j not logback -->
     <dependency>
@@ -60,8 +86,16 @@ cat > pom.xml <<-'EOF'
 EOF
 mvn -q --batch-mode -DoutputDirectory=lib \
     -Dcassandra.version=${CASSANDRA_VERSION} \
-    org.apache.maven.plugins:maven-dependency-plugin:3.8.1:copy-dependencies
+    org.apache.maven.plugins:maven-dependency-plugin:3.10.0:copy-dependencies
 rm pom.xml
+
+# Get a version of ObjectSizes.java that compiles with jamm 0.4.0
+wget --random-wait --tries=5 -qO ObjectSizes.java \
+  https://raw.githubusercontent.com/apache/cassandra/refs/tags/cassandra-5.0.6/src/java/org/apache/cassandra/utils/ObjectSizes.java
+# Rename a public method back to the same name as used in Cassandra 4.1.
+sed -i 's/sizeOnHeapExcludingDataOf/sizeOnHeapExcludingData/g' ObjectSizes.java
+# Compile it into classes, which overrides the same class from Cassandra 4.1.
+javac -cp 'lib/*' -d classes ObjectSizes.java
 
 # Make sure you use relative paths in references like this, so that installation
 # is decoupled from runtime
@@ -116,8 +150,8 @@ sed -i '/read_repair_chance/d' schema
 #
 # Merging makes adding Cassandra v5 easier and lets us share a common JRE 17+
 # with other test images even if Cassandra v4 will never officially support it.
-# https://github.com/apache/cassandra/blob/cassandra-4.0.11/conf/jvm11-server.options
-# https://github.com/apache/cassandra/blob/cassandra-5.0/conf/jvm17-server.options
+# https://github.com/apache/cassandra/blob/cassandra-4.1.10/conf/jvm11-server.options
+# https://github.com/apache/cassandra/blob/cassandra-5.0.6/conf/jvm17-server.options
 #
 # Finally, we allow security manager to prevent JRE 21 crashing when Cassandra
 # attempts ThreadAwareSecurityManager.install()
@@ -136,7 +170,6 @@ java -cp 'classes:lib/*' -Xms64m -Xmx64m -XX:+ExitOnOutOfMemoryError -verbose:gc
   --add-opens java.base/jdk.internal.reflect=ALL-UNNAMED \
   --add-opens java.base/jdk.internal.math=ALL-UNNAMED \
   --add-opens java.base/jdk.internal.module=ALL-UNNAMED \
-  --add-opens java.base/jdk.internal.util.jar=ALL-UNNAMED \
   --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED \
   --add-opens java.base/java.io=ALL-UNNAMED \
   --add-opens java.base/java.nio=ALL-UNNAMED \
@@ -170,9 +203,7 @@ is_cassandra_alive() {
 is_cassandra_alive || exit 1
 
 echo "*** Installing cqlsh"
-# cqlsh 4.x is not compatible with Python 3.12 by default.
-# See https://issues.apache.org/jira/browse/CASSANDRA-19206
-python3_version=3.12
+python3_version=3.14
 apk add --update --no-cache python3=~${python3_version}
 # Installing cqlsh requires cffi package. Normally this doesn't need
 # to be compiled, but something isn't right with aarch64 when installing
@@ -186,8 +217,10 @@ apk add --update --no-cache gcc python3-dev=~${python3_version} musl-dev libffi-
 python3 -m venv .venv
 . .venv/bin/activate
 python3 -m ensurepip --upgrade
-# TODO: just cqlsh when https://github.com/jeffwidman/cqlsh/pull/37 is released
-pip install -Iq git+https://github.com/jeffwidman/cqlsh@master
+pip install --upgrade pip setuptools wheel
+# Installing from trunk since released versions have dependency on old setup tools
+pip install -Iq git+https://github.com/apache/cassandra-python-driver@trunk
+pip install cqlsh
 cql() {
   cqlsh "$@" 127.0.0.1 ${temp_native_transport_port}
 }

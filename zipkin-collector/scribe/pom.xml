@@ -11,7 +11,7 @@
   <parent>
     <groupId>io.zipkin.zipkin2</groupId>
     <artifactId>zipkin-collector-parent</artifactId>
-    <version>3.4.5-SNAPSHOT</version>
+    <version>3.6.2-SNAPSHOT</version>
   </parent>
 
   <artifactId>zipkin-collector-scribe</artifactId>
@@ -23,6 +23,19 @@
     <!-- error-prone doesn't like generated code -->
     <errorprone.args>-XepDisableWarningsInGeneratedCode</errorprone.args>
   </properties>
+
+  <!-- Avoid CVEs in armeria deps -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${netty.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
     <dependency>

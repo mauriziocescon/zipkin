@@ -19,10 +19,11 @@
 !docker/test-images/zipkin-cassandra/start-cassandra
 !zipkin-storage/cassandra/src/main/resources/*.cql
 
-!docker/test-images/zipkin-elasticsearch7/config/
-!docker/test-images/zipkin-elasticsearch7/start-elasticsearch
 !docker/test-images/zipkin-elasticsearch8/config/
 !docker/test-images/zipkin-elasticsearch8/start-elasticsearch
+
+!docker/test-images/zipkin-elasticsearch9/config/
+!docker/test-images/zipkin-elasticsearch9/
 
 !docker/test-images/zipkin-opensearch2/config/
 !docker/test-images/zipkin-opensearch2/start-opensearch
@@ -55,6 +56,7 @@
 !zipkin-collector/kafka/src/main/**
 !zipkin-collector/rabbitmq/src/main/**
 !zipkin-collector/scribe/src/main/**
+!zipkin-collector/pulsar/src/main/**
 !zipkin-junit5/src/main/**
 !zipkin-storage/src/main/**
 !zipkin-storage/cassandra/src/main/**

@@ -2,7 +2,7 @@
 
 [![Gitter chat](http://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-brightgreen.svg)](https://gitter.im/openzipkin/zipkin)
 [![Build Status](https://github.com/openzipkin/zipkin/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/openzipkin/zipkin/actions?query=workflow%3Atest+branch%3Amaster)
-[![Maven Central](https://img.shields.io/maven-central/v/io.zipkin/zipkin-server.svg)](https://search.maven.org/search?q=g:io.zipkin%20AND%20a:zipkin-server)
+[![Maven Central](https://img.shields.io/maven-central/v/io.zipkin/zipkin-server.svg)](https://central.sonatype.com/search?q=zipkin&namespace=io.zipkin&name=zipkin-server)
 
 [Zipkin](https://zipkin.io) is a distributed tracing system. It helps gather
 timing data needed to troubleshoot latency problems in service architectures.
@@ -24,13 +24,13 @@ aggregate behavior including error paths or calls to deprecated services.
 Application’s need to be “instrumented” to report trace data to Zipkin. This
 usually means configuration of a [tracer or instrumentation library](https://zipkin.io/pages/tracers_instrumentation.html). The most
 popular ways to report data to Zipkin are via http or Kafka, though many other
-options exist, such as Apache ActiveMQ, gRPC and RabbitMQ. The data served to
+options exist, such as Apache ActiveMQ, gRPC, RabbitMQ and Apache Pulsar. The data served to
 the UI is stored in-memory, or persistently with a supported backend such as
 Apache Cassandra or Elasticsearch.
 
 ## Quick-start
 
-The quickest way to get started is to fetch the [latest released server](https://search.maven.org/remote_content?g=io.zipkin&a=zipkin-server&v=LATEST&c=exec) as a self-contained
+The quickest way to get started is to fetch the [latest released server](https://central.sonatype.com/search?q=zipkin&namespace=io.zipkin&name=zipkin-server&sort=published) as a self-contained
 executable jar. Note that the Zipkin server requires minimum JRE 17+. For example:
 
 ```bash
@@ -215,10 +215,10 @@ Server artifacts are under the maven group id `io.zipkin`
 Library artifacts are under the maven group id `io.zipkin.zipkin2`
 
 ### Library Releases
-Releases are at [Sonatype](https://oss.sonatype.org/content/repositories/releases) and [Maven Central](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22io.zipkin%22)
+Releases are at [Maven Central](https://central.sonatype.com/search?q=zipkin&namespace=io.zipkin)
 
 ### Library Snapshots
-Snapshots are uploaded to [Sonatype](https://oss.sonatype.org/content/repositories/snapshots) after
+Snapshots are uploaded to [Sonatype](https://central.sonatype.com/repository/maven-snapshots/) after
 commits to master.
 
 ### Docker Images

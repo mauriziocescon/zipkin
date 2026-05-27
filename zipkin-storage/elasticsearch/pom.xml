@@ -11,7 +11,7 @@
   <parent>
     <groupId>io.zipkin.zipkin2</groupId>
     <artifactId>zipkin-storage-parent</artifactId>
-    <version>3.4.5-SNAPSHOT</version>
+    <version>3.6.2-SNAPSHOT</version>
   </parent>
 
   <artifactId>zipkin-storage-elasticsearch</artifactId>
@@ -23,6 +23,19 @@
     <!-- error-prone doesn't like generated code and it wants you to depend on guava! -->
     <errorprone.args>-XepDisableWarningsInGeneratedCode -Xep:AutoValueImmutableFields:OFF -Xep:ExtendsAutoValue:OFF -Xep:AutoValueSubclassLeaked:OFF</errorprone.args>
   </properties>
+
+  <!-- Avoid CVEs in armeria deps -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${netty.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
     <dependency>
@@ -56,7 +69,7 @@
       <version>${armeria.version}</version>
       <scope>test</scope>
     </dependency>
-    
+
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
